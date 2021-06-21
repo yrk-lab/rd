@@ -19,7 +19,10 @@ istrusted(uchar* cert, int certlen)
 	sha1(cert, certlen, digest, nil);
 	table = initThumbprints("/sys/lib/tls/rdp", "/sys/lib/tls/rdp.exclude", "x224");
 	if(!table || !okThumbprint(digest, SHA1dlen, table)){
-		werrstr("server certificate %.*H not recognized", SHA1dlen, digest);
+		werrstr("server certificate not recognized");
+		fprint(2, "verify server certificate %.*H \n", SHA1dlen, digest);
+		fprint(2, "add thumbprint after verification\n");
+		fprint(2, "\techo 'x224 sha1=%.*H' >> %q\n", SHA1dlen, digest, "/sys/lib/tls/rdp");
 		return 0;
 	}
 	freeThumbprints(table);
