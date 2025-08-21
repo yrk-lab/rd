@@ -30,7 +30,7 @@ x224handshake(Rdp* c)
 		werrstr("X.224: protocol botch");
 		return -1;
 	}
-	if(r.negproto&ProtoTLS == 0){
+	if((r.negproto&ProtoTLS) == 0){
 		werrstr("server refused STARTTLS");
 		return -1;
 	}
