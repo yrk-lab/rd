@@ -100,7 +100,7 @@ getsnarfn(int *pnb)
 	if(snarffd < 0)
 		return nil;
 
-	s = nil;
+	s = emalloc(1);
 	i = 0;
 	seek(snarffd, 0, 0);
 	while((n = read(snarffd, buf, sizeof(buf))) > 0){
