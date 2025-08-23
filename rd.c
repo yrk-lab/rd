@@ -23,7 +23,7 @@ void	sendmouse(Rdp* c, Mouse m);
 static void
 usage(void)
 {
-	fprint(2, "usage: rd [-0A] [-T title] [-a depth] [-c wdir] [-d dom] [-k keyspec] [-n term] [-s shell] [net!]server[!port]\n");
+	fprint(2, "usage: rd [-0A] [-T title] [-a depth] [-c wdir] [-d dom] [-k keyspec] [-s shell] [net!]server[!port]\n");
 	exits("usage");
 }
 
@@ -81,6 +81,45 @@ startsnarfproc(Rdp* c)
 	initsnarf();
 	pollsnarf(c);
 	exits("snarf eof");
+	return 0;
+}
+
+static int afd = -1;
+
+static void
+readaudiopipe(Rdp*, int fd)
+{
+	int n, afd;
+	uchar buf[4];
+
+	afd = open("/dev/audio", OWRITE);
+	for(;;){
+		if((n = read(fd, buf, sizeof buf)) < 0)
+			break;
+		write(afd, buf, n);
+	}
+}
+
+static int
+startaudioproc(Rdp* c)
+{
+	int pid, fd[2];
+	
+	if(pipe(fd) < 0)
+		sysfatal("pipe: %r");
+
+	switch(pid = rfork(RFPROC|RFMEM)){
+	case -1:
+		sysfatal("rfork: %r");
+	case 0:
+		break;
+	default:
+		close(fd[0]);
+		afd = fd[1];
+		return pid;
+	}
+	close(fd[1]);
+	readaudiopipe(c, fd[0]);
 	return 0;
 }
 
@@ -185,6 +224,7 @@ main(int argc, char *argv[])
 	atexitkill(startmouseproc(c));
 	atexitkill(startkbdproc(c));
 	atexitkill(startsnarfproc(c));
+	//atexitkill(startaudioproc(c));
 
 	readnet(c);
 
@@ -269,4 +309,10 @@ warpmouse(int x, int y)
 		return;
 
 	fprint(mfd, "m%d %d", x, y);
+}
+
+void
+playsound(Rdp*, uchar* a, uint n)
+{
+	write(afd, a, n);
 }

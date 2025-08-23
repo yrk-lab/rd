@@ -4,10 +4,39 @@ typedef	struct	Msg Msg;
 typedef	struct	Share Share;
 typedef	struct	Caps Caps;
 typedef	struct	Imgupd Imgupd;
+typedef	struct	Audstate	Audstate;
+typedef	struct	Efsstate Efsstate;
+typedef	struct	Efsmsg Efsmsg;
+
+#define	GSHORT(p)	((p)[0]|((p)[1]<<8))
+#define	GSHORTB(p)	((p)[0]<<8|((p)[1]))
+#define	GLONG(p) 	((p)[0]|((p)[1]<<8)|((p)[2]<<16)|((p)[3]<<24))
+#define	GLONGB(p)	(((p)[0]<<24)|((p)[1]<<16)|((p)[2]<<8)|(p)[3])
+#define	PSHORT(p,v)	(p)[0]=(uchar)(v);(p)[1]=(uchar)((v)>>8)
+#define	PSHORTB(p,v)	(p)[0]=(uchar)((v)>>8);(p)[1]=(uchar)(v)
+#define	PLONG(p,v)	\
+	(p)[0]=(uchar)(v);(p)[1]=(uchar)((v)>>8);\
+	(p)[2]=(uchar)((v)>>16);(p)[3]=(uchar)((v)>>24)
+#define	PLONGB(p,v)	\
+	(p)[0]=(uchar)((v)>>24);(p)[1]=(uchar)((v)>>16);\
+	(p)[2]=(uchar)((v)>>8);(p)[3]=(uchar)(v)
+
+#define	MIN(x,y)		(((x) < (y)) ? (x) : (y))
 
 enum
 {
 	MAXTPDU=	16386,	/* max TPDU size */
+};
+
+struct Efsstate
+{
+	uint	cid;	/* client ID */
+};
+
+struct Audstate
+{
+	uint	seq;
+	uint	time;
 };
 
 struct Rdp
@@ -24,13 +53,15 @@ struct Rdp
 	int		xsz;			/* rfb dimensions */
 	int		ysz;			/* rfb dimensions */
 	int		depth;		/* rfb color depth */
-	int		hupreason;	/* hangup reason as server explains */
+	int		hupreason;	/* hangup reason code */
 	int		mcsuid;		/* MCS [T.122] userId */
 	int		userchan;		/* MCS user channelId */
 	int		srvchan;		/* MCS server channel ID */
 	int		shareid;		/* share ID - [T128] section 8.4.2 */
 	int		active;		/* T.128 action state */
 	int		wantconsole;	/* attach to the console sesstion */
+	Efsstate	efs;			/* FS extension state (efs.c) */
+	Audstate	audio;		/* Audio extension state */
 	Vchan	*vc;			/* static virtual channels table */
 	uint		nvc;			/* number of vctab entries */
 	uchar	cmap[256];	/* rfb color map for depths ≤ 8 */
@@ -52,7 +83,10 @@ void	readnet(Rdp*);
 void	clipannounce(Rdp*);
 void	clipvcfn(Rdp*, uchar*,uint);
 void	audiovcfn(Rdp*, uchar*,uint);
+void	efsvcfn(Rdp*, uchar*,uint);
 void	pollsnarf(Rdp*);
+void	playsound(Rdp*, uchar*,uint);
+
 
 void	initscreen(Rdp*);
 void	readkbd(Rdp*);
@@ -220,7 +254,7 @@ enum /* Imgupd.type */
 	Ubitmap,
 	Uscrblt,
 	Umemblt,
-	Ucacheimg,
+	Uicache,
 	Umcache,
 };
 struct Imgupd
@@ -233,12 +267,12 @@ struct Imgupd
 	int	xsz;
 	int	ysz;
 	int	depth;
-	int	clip;
-	int	compressed;
+	int	iscompr;
 	int	cid;
 	int	coff;
 	int	sx;
 	int	sy;
+	int	clipped;
 	int	cx;
 	int	cy;
 	int	cxsz;
@@ -248,6 +282,31 @@ struct Imgupd
 };
 int	getimgupd(Imgupd*, uchar*, uint);
 int	getfupd(Imgupd*, uchar*, uint);
+
+enum /* 2.2.1.1 Shared Header (RDPDR_HEADER) */
+{
+	CTcore=	0x4472,	// Device redirector core component
+	CTprn=	0x5052,	// Printing component
+	// CTcore
+	CSann=	0x496e,	// Server Announce Request
+	CCann=	0x4343,	// Client Announce Reply
+	CCnrq=	0x434e,	// Client Name Request
+};
+
+struct Efsmsg {
+	uint ctype;	// Component (core or printing)
+	uint pakid;	// PackedId (identifies packet function)
+	// CSann, CCann
+	uint vermaj;
+	uint vermin;
+	uint cid;	// ClientID
+	// CCnrq
+	char* cname;
+};
+int	getefsmsg(Efsmsg*, uchar*, int);
+int	putefsmsg(uchar*, int, Efsmsg*);
+int	sendefsmsg(Rdp*, Efsmsg*);
+
 
 enum 
 {

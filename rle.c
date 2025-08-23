@@ -104,8 +104,8 @@ unrle(uchar* d, int nd, uchar* s, int ns, int bpl, int pixelsize)
 	we = d+nd;
 	wasbg = 0;
 	wasline1 = 1;
-	iputl(pen, DWhite);
-	iputl(wpen, DWhite);
+	PLONG(pen, DWhite);
+	PLONG(wpen, DWhite);
 
 	while(p < ep){
 		hdr = *p++;
@@ -129,7 +129,7 @@ unrle(uchar* d, int nd, uchar* s, int ns, int bpl, int pixelsize)
 		}else{
 			code = hdr&Bits4;
 			if(code < 9){
-				len = igets(p);
+				len = GSHORT(p);
 				p += 2;
 			}else
 				len = 0;
@@ -138,7 +138,7 @@ unrle(uchar* d, int nd, uchar* s, int ns, int bpl, int pixelsize)
 		len *= pixelsize;
 		if(wp+len > we){
 		   Overrun:
-			werrstr("unrle: output buffer is %zd bytes short", (intptr)(wp+len-we));
+			werrstr("unrle: output buffer is %uld bytes short", wp+len-we);
 			return nil;
 		}
 

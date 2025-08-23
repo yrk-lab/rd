@@ -31,6 +31,12 @@ static Vchan vctab[] =
 	},
 	{
 		.mcsid = GLOBALCHAN+2,
+		.name = "RDPDR",
+		.fn = efsvcfn,
+		.flags = Inited,
+	},
+	{
+		.mcsid = GLOBALCHAN+3,
 		.name = "RDPSND",
 		.fn = audiovcfn,
 		.flags = Inited,

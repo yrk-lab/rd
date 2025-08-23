@@ -214,3 +214,8 @@ readnet(Rdp* c)
 		apply(c, &r);
 	}
 }
+
+void
+playsound(Rdp*, uchar*, uint)
+{
+}

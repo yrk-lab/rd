@@ -8,6 +8,8 @@
 #include "dat.h"
 #include "fns.h"
 
+#define	DBG	if(0)
+
 enum
 {
 	Bits2=	3,
@@ -23,10 +25,10 @@ enum /* 2.2.2.2.1 Drawing Order (DRAWING_ORDER) */
 };
 enum /* 2.2.2.2.1.1.2 Primary Drawing Order (PRIMARY_DRAWING_ORDER) */
 {
-	Clip=		1<<2,
+	Clipped=		1<<2,
 	NewOrder= 	1<<3,
 	Diff=			1<<4,
-	Lastclipr=	1<<5,
+	SameClipping=	1<<5,
 	ZeroFieldBit0=	1<<6,
 	ZeroFieldBit1=	1<<7,
 };
@@ -117,8 +119,8 @@ static struct GdiContext
 	Rectangle clipr;
 } gc	= {PatBlt};
 
-static	int	loadclipr(Rectangle*,uchar*,int);
-static	int	loadpt(Point*,uchar*,int,int,int);
+static	int	cfclipr(Rectangle*,uchar*,int);
+static	int	cfpt(Point*,uchar*,int,int,int);
 
 int
 getfupd(Imgupd* up, uchar* a, uint nb)
@@ -137,10 +139,10 @@ getfupd(Imgupd* up, uchar* a, uint nb)
 	if(ctl&Secondary){
 		if(p+6>ep)
 			sysfatal("draworders: %s", Eshort);
-		size = ((short)igets(p+1))+13;
+		size = ((short)GSHORT(p+1))+13;
 		if(size < 0 || p+size > ep)
 			sysfatal("draworders: size: %s", Eshort);
-		opt = igets(p+3);
+		opt = GSHORT(p+3);
 		xorder = p[5];
 		if(xorder >= nelem(auxtab) || auxtab[xorder].get == nil){
 			fprint(2, "egdi: unsupported secondary order %d\n", xorder);
@@ -166,7 +168,7 @@ getfupd(Imgupd* up, uchar* a, uint nb)
 		fset = p[0]|(p[1]<<8)|(p[2]<<16);
 		break;
 	case 2:
-		fset = igets(p);
+		fset = GSHORT(p);
 		break;
 	case 1:
 		fset = p[0];
@@ -175,8 +177,8 @@ getfupd(Imgupd* up, uchar* a, uint nb)
 	}
 	p += fsize;
 
-	if(ctl&Clip && !(ctl&Lastclipr))
-		p += loadclipr(&gc.clipr, p, ep-p);
+	if(ctl&Clipped && !(ctl&SameClipping))
+		p += cfclipr(&gc.clipr, p, ep-p);
 
 	if(ordtab[gc.order].get == nil)
 		goto ErrNotsup;
@@ -195,7 +197,7 @@ ErrNotsup:
 }
 
 static int
-loadpt(Point* p, uchar* a, int nb, int isdelta, int fset)
+cfpt(Point* p, uchar* a, int nb, int isdelta, int fset)
 {
 	int n;
 
@@ -212,7 +214,7 @@ loadpt(Point* p, uchar* a, int nb, int isdelta, int fset)
 			n += 2;
 	}
 	if(n>nb)
-		sysfatal("loadpt: %s", Eshort);
+		sysfatal("cfpt: %s", Eshort);
 
 	if(isdelta){
 		if(fset&1<<0)
@@ -221,28 +223,28 @@ loadpt(Point* p, uchar* a, int nb, int isdelta, int fset)
 			p->y += (signed char)*a;
 	}else{
 		if(fset&1<<0){
-			p->x = igets(a);
+			p->x = GSHORT(a);
 			a += 2;
 		};
 		if(fset&1<<1)
-			p->y = igets(a);
+			p->y = GSHORT(a);
 	}
 	return n;
 }
 
 static int
-loadrect(Rectangle* pr, uchar* p, int nb, int isdelta, int fset){
+cfrect(Rectangle* pr, uchar* p, int nb, int isdelta, int fset){
 	int n, m;
 
 	pr->max = subpt(pr->max, pr->min);
-	n = loadpt(&pr->min, p, nb, isdelta, fset);
-	m = loadpt(&pr->max, p+n, nb-n, isdelta, fset>>2);
+	n = cfpt(&pr->min, p, nb, isdelta, fset);
+	m = cfpt(&pr->max, p+n, nb-n, isdelta, fset>>2);
 	pr->max = addpt(pr->max, pr->min);
 	return n+m;
 }
 
 static int
-loadclipr(Rectangle* pr, uchar* a, int nb)
+cfclipr(Rectangle* pr, uchar* a, int nb)
 {
 	int bctl;
 	uchar *p, *ep;
@@ -254,29 +256,29 @@ loadclipr(Rectangle* pr, uchar* a, int nb)
 	if(bctl&1<<4)
 		pr->min.x += (char)*p++;
 	else if(bctl&1<<0){
-		pr->min.x = igets(p);
+		pr->min.x = GSHORT(p);
 		p += 2;
 	}
 	if(bctl&1<<5)
 		pr->min.y += (char)*p++;
 	else if(bctl&1<<1){
-		pr->min.y = igets(p);
+		pr->min.y = GSHORT(p);
 		p += 2;
 	}
 	if(bctl&1<<6)
 		pr->max.x += (char)*p++;
 	else if(bctl&1<<2){
-		pr->max.x = igets(p)+1;
+		pr->max.x = GSHORT(p)+1;
 		p += 2;
 	}
 	if(bctl&1<<7)
 		pr->max.y += (char)*p++;
 	else if(bctl&1<<3){
-		pr->max.y = igets(p)+1;
+		pr->max.y = GSHORT(p)+1;
 		p += 2;
 	}
 	if(p>ep)
-		sysfatal("loadclipr: %s", Eshort);
+		sysfatal("cfclipr: %s", Eshort);
 	return p-a;
 }
 
@@ -291,21 +293,22 @@ getscrblt(Imgupd* up, uchar* a, uint nb, int ctl, int fset)
 	static	Point wp;
 	static	int rop3;
 
+DBG	fprint(2, "getscrblt...");
 	p = a;
 	ep = a+nb;
 
-	n = loadrect(&wr, p, ep-p, ctl&Diff, fset);
+	n = cfrect(&wr, p, ep-p, ctl&Diff, fset);
 	p += n;
 	if(fset&1<<4){
 		if(ep-p<1)
 			sysfatal(Eshort);
 		rop3 = *p++;
 	}
-	n = loadpt(&wp, p, ep-p, ctl&Diff, fset>>5);
+	n = cfpt(&wp, p, ep-p, ctl&Diff, fset>>5);
 	p += n;
 
 	r = wr;
-	if(ctl&Clip)
+	if(ctl&Clipped)
 		rectclip(&r, gc.clipr);
 
 	if(rop3 != Scopy)
@@ -332,22 +335,23 @@ getmemblt(Imgupd* up, uchar* a, uint nb, int ctl, int fset)
 	static Point pt;
 	int n;
 	uchar *p, *ep;
+DBG	fprint(2, "getmemblt...");
 
 	p = a;
 	ep = a+nb;
 
 	if(fset&1<<0){
-		cid = igets(p);
+		cid = GSHORT(p);
 		p += 2;
 	}
-	n = loadrect(&r, p, ep-p, ctl&Diff, fset>>1);
+	n = cfrect(&r, p, ep-p, ctl&Diff, fset>>1);
 	p += n;
 	if(fset&1<<5)
 		rop3 = *p++;
-	n = loadpt(&pt, p, ep-p, ctl&Diff, fset>>6);
+	n = cfpt(&pt, p, ep-p, ctl&Diff, fset>>6);
 	p += n;
 	if(fset&1<<8){
-		coff = igets(p);
+		coff = GSHORT(p);
 		p += 2;
 	}
 	if(p>ep)
@@ -366,9 +370,9 @@ getmemblt(Imgupd* up, uchar* a, uint nb, int ctl, int fset)
 	up->ysz = Dy(r);
 	up->sx = pt.x;
 	up->sy = pt.y;
-	up->clip = 0;
-	if(ctl&Clip){
-		up->clip = 1;
+	up->clipped = 0;
+	if(ctl&Clipped){
+		up->clipped = 1;
 		up->cx = gc.clipr.min.x;
 		up->cy = gc.clipr.min.y;
 		up->cxsz = Dx(gc.clipr);
@@ -388,10 +392,11 @@ getimgcache2(Imgupd* up, uchar* a, uint nb, int xorder, int opt)
 	int n, g;
 	int size;
 
+DBG	fprint(2, "getimgcache2...");
 	p = a;
 	ep = a+nb;
 
-	up->compressed = (xorder==CacheCompressed2);
+	up->iscompr = (xorder==CacheCompressed2);
 
 	cid = opt&Bits3;
 	opt >>= 7;
@@ -431,14 +436,14 @@ getimgcache2(Imgupd* up, uchar* a, uint nb, int xorder, int opt)
 		g = ((g&Bits7)<<8) | *p++;
 	coff = g;
 
-	if(up->compressed && !(opt&1<<3)){
+	if(up->iscompr && !(opt&1<<3)){
 		p += 8;	// bitmapComprHdr
 		size -= 8;
 	}
 	if(p+size > ep)
 		sysfatal("cacheimage2: size: %s", Eshort);
 
-	up->type = Ucacheimg;
+	up->type = Uicache;
 	up->cid = cid;
 	up->coff = coff;
 	up->nbytes = size;
@@ -451,11 +456,12 @@ static int
 getcmapcache(Imgupd* up, uchar* a, uint nb, int xorder, int opt)
 {
 	int cid, n;
+DBG	fprint(2, "getcmapcache...");
 	USED(xorder);
 	USED(opt);
 	
 	cid = a[6];
-	n = igets(a+7);
+	n = GSHORT(a+7);
 	if(n != 256)
 		sysfatal("cachecmap: %d != 256", n);
 	if(9+4*256 > nb)
@@ -466,3 +472,4 @@ getcmapcache(Imgupd* up, uchar* a, uint nb, int xorder, int opt)
 	up->nbytes = 4*256;
 	return 9+4*256;
 }
+
