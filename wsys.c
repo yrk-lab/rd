@@ -104,13 +104,12 @@ getsnarfn(int *pnb)
 	i = 0;
 	seek(snarffd, 0, 0);
 	while((n = read(snarffd, buf, sizeof(buf))) > 0){
-		s = erealloc(s, i+n+1);	// an extra byte for the terminating zero
+		s = erealloc(s, i+n+1);
 		memmove(s+i, buf, n);
 		i += n;
 	}
 	s[i] = 0;
-	i++;
-	*pnb = i;
+	*pnb = i+1;	// with the terminating zero
 	return s;
 }
 
