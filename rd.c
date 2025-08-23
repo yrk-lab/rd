@@ -243,13 +243,14 @@ readdevmouse(Rdp* c)
 {
 	Mouse m;
 	char ev[1+4*12];
+	int n;
 
 	if((mfd = open("/dev/mouse", ORDWR)) < 0)
 		sysfatal("open /dev/mouse: %r");
 
 	for(;;){
-		if(read(mfd, ev, sizeof ev) != sizeof ev)
-			sysfatal("mouse eof");
+		if((n = read(mfd, ev, sizeof ev)) != sizeof ev)
+			sysfatal("mouse read: %d != %d", n, (int)sizeof ev);
 		if(*ev == 'm'){
 			m.xy.x = atoi(ev+1+0*12);
 			m.xy.y = atoi(ev+1+1*12);
