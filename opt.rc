@@ -1,0 +1,7 @@
+#!/bin/rc
+
+# 9front differs in initThumbprints signature/usage 
+if(~ `{grep initThumbprints /sys/include/libsec.h | wc -w} 7)
+	echo 'TLSFILE=tls9f'
+if not
+	echo 'TLSFILE=tls'

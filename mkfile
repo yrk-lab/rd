@@ -1,4 +1,6 @@
 </$objtype/mkfile
+<|opt.rc
+
 #<$PLAN9/src/mkhdr
 
 TARG=rd
@@ -24,11 +26,11 @@ OFILES=\
 	msg.$O\
 	rd.$O\
 	rpc.$O\
-	tls.$O\
 	utf16.$O\
 	vchan.$O\
 	wsys.$O\
 	x224.$O\
+	$TLSFILE.$O\
 
 THREADOFILES=${OFILES:rd.$O=rd-thread.$O}
 CLEANFILES=$O.thread $O.test
