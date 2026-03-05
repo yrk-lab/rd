@@ -9,10 +9,11 @@ enum /* 2.2.7 Capability Sets; T.128 */
 	CapBitmap=	2,
 	CapOrder=	3,
 	CapPointer=	8,
-	CapBitcache2=	19,
-	CapInput=	13,
 	CapSound=	12,
+	CapInput=	13,
 	CapGlyph=	16,
+	CapBitcache2=	19,
+	CapVChan=	20,
 
 	/* 2.2.7.1.1 General Capability Set (TS_GENERAL_CAPABILITYSET) */
 	CanFastpath=	0x0001,
@@ -29,6 +30,7 @@ static int	putptrcaps(uchar*,uint,Caps*);
 static int	putinpcaps(uchar*,uint,Caps*);
 static int	putsndcaps(uchar*,uint,Caps*);
 static int	putglycaps(uchar*,uint,Caps*);
+static int	putvccaps(uchar*,uint,Caps*);
 
 static
 struct {
@@ -44,6 +46,7 @@ struct {
 	{ 8,	putptrcaps },
 	{ 88,	putinpcaps },
 	{ 8,	putsndcaps },
+	{ 8,	putvccaps },
 	{ 52,	putglycaps },
 };
 
@@ -369,5 +372,20 @@ putsndcaps(uchar *p, uint nb, Caps* caps)
 	PSHORT(p+2, 8);	// size
 	PSHORT(p+4, 0);	// soundFlags
 	PSHORT(p+6, 0);	// pad2octetsA
+	return 8;
+}
+
+/* 2.2.7.1.10 Virtual Channel Capability Set (TS_VIRTUALCHANNEL_CAPABILITYSET) */
+static int
+putvccaps(uchar *p, uint nb, Caps* caps)
+{
+	USED(caps);
+	if(nb<8){
+		werrstr(Eshort);
+		return -1;
+	}
+	PSHORT(p+0, CapVChan);
+	PSHORT(p+2, 8);	// size
+	PLONG(p+4, 0); 	// flags: 0=vchan compression not supported
 	return 8;
 }

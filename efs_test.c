@@ -56,7 +56,7 @@ testcann()
 	int n;
 	uchar buf[32];
 	Efsmsg m;
-	char *cann,*s;
+	char *targ,*s;
 
 	m.ctype = CTcore;
 	m.pakid = CCann;
@@ -68,12 +68,17 @@ testcann()
 		sysfatal("testcann: unexpected errror: %r");
 	fmtinstall('H', encodefmt);
 	s = smprint("%.*H", n, buf);
-	cann = "7244434301000D0005000000";
-	if(strcmp(s, cann) != 0)
-		sysfatal("testcann: expected %s, got %s", cann, s);
-	if(n != strlen(cann)/2)
+	targ = 
+		"7244"	// Header->RDPDR_CTYP_CORE = 0x4472
+		"4343"	// Header->PAKID_CORE_CLIENTID_CONFIRM = 0x4343
+		"0100"	// VersionMajor = 0x0001
+		"0D00"	// VersionMinor = 0x000d
+		"05000000";	// ClientId = 0x00000005
+	if(strcmp(s, targ) != 0)
+		sysfatal("testcann: expected %s, got %s", targ, s);
+	if(n != strlen(targ)/2)
 		sysfatal("testcann: ret: expected %ld, got %d",
-			strlen(cann)/2, n);
+			strlen(targ)/2, n);
 }
 
 void

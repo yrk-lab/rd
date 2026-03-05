@@ -82,17 +82,17 @@ loadrle(Image *i, Rectangle r, uchar *data, int ndata, uchar *cmap)
 }
 
 void
-loadcmap(Rdp* c, Share* as)
+loadcmap(Rdp* c, Share* s)
 {
 	int i, n;
 	uchar *p,  *ep, *cmap;
 
-	if(as->type != ShUcmap){
+	if(s->type != ShUcmap){
 		fprint(2, "loadcmap: bad share type");
 		return;
 	}
-	p = as->data;
-	ep = as->data + as->ndata;
+	p = s->data;
+	ep = s->data + s->ndata;
 	cmap = c->cmap;
 
 	n = GSHORT(p+4);
