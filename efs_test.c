@@ -126,6 +126,7 @@ main(int, char**)
 	testcann();
 	testcnrq();
 	audiotests();
+	msgtests();
 	print("ok\n");
 	exits(nil);
 }

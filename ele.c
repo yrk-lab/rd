@@ -145,6 +145,7 @@ putlicensemsg(uchar* buf, uint nb, Msg* m)
 		PLONG(p+8, newstate);
 		PSHORT(p+12, Berror);
 		PSHORT(p+14, 0);
+		p += 16;
 		break;
 	}
 	assert(p == ep);

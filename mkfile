@@ -37,7 +37,8 @@ CLEANFILES=$O.thread $O.test
 TESTHFILES=audio.c
 TESTOFILES=\
 	efs_test.$O	efs.$O utf16.$O \
-	aud_test.$O	
+	aud_test.$O	\
+	msg_test.$O	x224.$O mcs.$O ele.$O mpas.$O mppc.$O alloc.$O cap.$O egdi.$O \
 
 </sys/src/cmd/mkone
 #<$PLAN9/src/mkone
