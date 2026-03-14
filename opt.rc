@@ -1,7 +1,20 @@
 #!/bin/rc
 
-# 9front differs in initThumbprints signature/usage 
-if(~ `{grep initThumbprints /sys/include/libsec.h | wc -w} 7)
-	echo 'TLSFILE=tls9f'
-if not
-	echo 'TLSFILE=tls'
+if(! ~ $#PLAN9 0) {
+	# plan9port
+	echo '<$PLAN9/src/mkhdr'
+	echo 'MKONE=$PLAN9/src/mkone'
+	echo 'TLSFILE=tlsp9p'
+	echo 'BIN=$PLAN9/bin'
+} 
+if not {
+	echo '</$objtype/mkfile'
+	echo 'MKONE=/sys/src/cmd/mkone'
+	echo 'BIN=/$objtype/bin'
+
+	# 9front differs in initThumbprints signature/usage 
+	if(~ `{grep initThumbprints /sys/include/libsec.h | wc -w} 7)
+		echo 'TLSFILE=tls9f'
+	if not
+		echo 'TLSFILE=tls'
+}
