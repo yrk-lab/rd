@@ -1,10 +1,6 @@
-</$objtype/mkfile
-<|opt.rc
-
-#<$PLAN9/src/mkhdr
+<|rc ./opt.rc
 
 TARG=rd
-BIN=/$objtype/bin
 
 HFILES=fns.h dat.h
 OFILES=\
@@ -44,8 +40,7 @@ TESTOFILES=\
 	rle_test.$O	\
 	utf16_test.$O	\
 
-</sys/src/cmd/mkone
-#<$PLAN9/src/mkone
+<$MKONE
 
 $TARG: mkfile
 
@@ -53,7 +48,7 @@ default:V: $O.thread
 all:V: $O.thread
 test:V: runtest
 runtest:V: $O.test
-	$O.test
+	./$O.test
 
 $O.thread:	$THREADOFILES $LIB
 	$LD $LDFLAGS -o $target $prereq
