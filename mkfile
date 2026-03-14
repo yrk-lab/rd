@@ -1,7 +1,8 @@
-</$objtype/mkfile
-<|opt.rc
-
-#<$PLAN9/src/mkhdr
+MKHDR=$PLAN9/src/mkhdr
+MKONE=$PLAN9/src/mkone
+TLSFILE=tlsp9p
+#<|rc opt.rc
+<$MKHDR
 
 TARG=rd
 BIN=/$objtype/bin
@@ -40,15 +41,14 @@ TESTOFILES=\
 	aud_test.$O	\
 	msg_test.$O	x224.$O mcs.$O ele.$O mpas.$O mppc.$O alloc.$O cap.$O egdi.$O \
 
-</sys/src/cmd/mkone
-#<$PLAN9/src/mkone
+<$MKONE
 
 $TARG: mkfile
 
 default:V: $O.thread
 all:V: $O.thread
 test:V: $O.test
-	$O.test
+	./$O.test
 
 $O.thread:	$THREADOFILES $LIB
 	$LD $LDFLAGS -o $target $prereq

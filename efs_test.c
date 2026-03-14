@@ -12,6 +12,7 @@ void testcnrq(void);
 void testsannrq(void);
 
 int audiotests(void);
+int msgtests(void);
 
 void
 testsannrq()

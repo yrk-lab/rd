@@ -92,7 +92,7 @@ threadmain(int argc, char *argv[])
 	if(c->user == nil)
 		sysfatal("set $user");
 	if(doauth){
-		creds = auth_getuserpasswd(auth_getkey, "proto=pass service=rdp %s", keyspec);
+		creds = auth_getuserpasswd(auth_getkey, "proto=pass role=client service=rdp %s", keyspec);
 		if(creds == nil)
 			fprint(2, "factotum: %r\n");
 		else {
