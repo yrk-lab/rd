@@ -70,7 +70,7 @@ The simplest form is just a server name:
 
 - `server`
 
-You can also specify a different Plan 9 network stack (if you don’t want the default `/net/tcp`), and/or an explicit port:
+The connection string can also include a specific Plan 9 network stack (instead of the default `/net/tcp`) and an explicit port:
 
 - `[net!]server[!port]`
 
@@ -88,7 +88,7 @@ Examples:
   Specifies a **Windows domain name** to authenticate against (for domain logons).
 
 - `-A`  
-  Disables factotum-based “auto logon”. With `-A`, Rd requests the server to present an interactive **logon screen** instead, and the user enters their credentials inside the remote GUI session. At that stage, credential submission occurs over an **encrypted channel**.
+  Disables factotum-based “auto logon”. With `-A`, Rd requests the server to present an interactive **logon screen** instead, and credentials are entered and validated inside the remote GUI session. At that stage, credential submission occurs over an **encrypted channel**.
 
 - `-T title`  
   Customizes the local window label. By default it is:
@@ -111,7 +111,7 @@ Examples:
 
 ## High-level architecture (for readers of the code)
 
-This section is a “map” of the runtime flow to help CS undergraduates, engineers, and curious readers orient themselves quickly.
+A quick overview of the runtime flow and the major modules.
 
 ### 1) Entry point and session state
 
@@ -166,6 +166,53 @@ Rd includes a virtual-channel abstraction (`Vchan`) that:
 
 ## Repository layout (selected files)
 
+**Start here:**
+
 - `rd.c` — program entry point, handshake pipeline, network loop, local input helpers
 - `dat.h` — session (`Rdp`) and protocol/message model (`Msg`, update structures, virtual channels)
 - `mkfile` — build rules and object list
+
+**Protocol and transport:**
+
+- `x224.c` — X.224 connection setup/teardown and TPDU framing (transport/session layer)
+- `mcs.c` — MCS (T.12x) connection/channel management helpers
+- `mpas.c` — core RDP “share control/data” PDU helpers (control flow, security header sizing, transmit prep)
+- `msg.c` — message encode/decode (`readmsg`/`writemsg`) and typed `Msg` marshalling
+- `cap.c` — capability parsing/serialization used during negotiation
+
+**Security:**
+
+- `tls.c` / `tls9f.c` — TLS support and certificate/thumbprint verification glue (build selects the appropriate file)
+
+**Rendering and graphics updates:**
+
+- `draw.c` — apply server drawing orders/bitmap updates to the local Plan 9 window
+- `load.c` — bitmap/cache loading helpers used by update decoding
+- `rle.c` — RLE decompression used for bitmap/update payloads
+- `mppc.c` — MPPC decompression used for compressed update payloads
+- `eclip.c` — clipping/region helpers for drawing operations
+
+**Input and window integration:**
+
+- `mouse.c` — mouse event encoding and client-to-server forwarding (and pointer warp support)
+- `kbd.c` — keyboard event encoding and client-to-server forwarding
+- `wsys.c` — window-system integration helpers (resizes, window events, etc.)
+
+**Virtual channels and extensions:**
+
+- `vchan.c` — virtual channel table setup, fragmentation/defragmentation, and send/dispatch support
+- `rpc.c` — higher-level request/response helpers used by some channel-style interactions
+- `audio.c` — audio virtual channel handling and client-side playback hooks
+- `efs.c` — extension/virtual channel support for device-redirection-style messages (see `Efsmsg` in `dat.h`)
+
+**Utilities and tests:**
+
+- `alloc.c` — allocation helpers (`emalloc`/`erealloc`)
+- `utf16.c` — UTF‑16 conversion helpers used by several protocol fields
+- `aud_test.c` — audio-related tests
+- `efs_test.c` — tests for EFS/extension encoding/decoding
+- `msg_test.c` — message parsing/encoding tests
+
+**Headers:**
+
+- `fns.h` — shared internal function declarations across modules
