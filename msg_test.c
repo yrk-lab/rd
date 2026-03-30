@@ -743,6 +743,104 @@ testgetmsg13(void)
 	return 0;
 }
 
+static int
+testgetmsg14(void)
+{
+	/* Flow PDU on global channel (isflowpdu): GSHORT = 0x8000 → Aflow */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001302F08068111103EB70800400800000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg14: unexpected error: %r");
+	if(m.type != Aflow)
+		sysfatal("testgetmsg14: type: want %d (Aflow), got %d", Aflow, m.type);
+	return 0;
+}
+
+static int
+testgetmsg15(void)
+{
+	/*
+	 * Slow-path on global channel with Slicensepk flag but sctlver==1.
+	 * The condition "secflg&Slicensepk && sctlver != 1" is false, so
+	 * getlicensemsg is NOT called and the PDU falls through to Aupdate.
+	 */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001302F08068111103EB70800480001000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg15: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg15: type: want %d (Aupdate), got %d", Aupdate, m.type);
+	if(m.ndata != 4)
+		sysfatal("testgetmsg15: ndata: want 4, got %d", m.ndata);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg15: getshare: expected getshareT");
+	return 0;
+}
+
+static int
+testgetmsg16(void)
+{
+	/* License PDU with Notify (0xFF) type → Ldone */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001402F08068111103EB70800580000000FF";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg16: unexpected error: %r");
+	if(m.type != Ldone)
+		sysfatal("testgetmsg16: type: want %d (Ldone), got %d", Ldone, m.type);
+	return 0;
+}
+
+static int
+testgetmsg17(void)
+{
+	/* License PDU with SNeedLicense (0x01) type → Lneedlicense */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001402F08068111103EB7080058000000001";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg17: unexpected error: %r");
+	if(m.type != Lneedlicense)
+		sysfatal("testgetmsg17: type: want %d (Lneedlicense), got %d", Lneedlicense, m.type);
+	return 0;
+}
+
+static int
+testgetmsg18(void)
+{
+	/* License PDU with SHaveChal (0x02) type → Lhavechal */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001402F08068111103EB7080058000000002";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg18: unexpected error: %r");
+	if(m.type != Lhavechal)
+		sysfatal("testgetmsg18: type: want %d (Lhavechal), got %d", Lhavechal, m.type);
+	return 0;
+}
+
 int
 msgtests()
 {
@@ -779,5 +877,10 @@ msgtests()
 	testgetmsg11();
 	testgetmsg12();
 	testgetmsg13();
+	testgetmsg14();
+	testgetmsg15();
+	testgetmsg16();
+	testgetmsg17();
+	testgetmsg18();
 	return 0;
 }
