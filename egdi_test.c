@@ -3,7 +3,7 @@
 int egditests(void);
 
 static int
-testegdi_nonstd(void)
+testegdinonstd(void)
 {
 	/*
 	 * Non-standard order: Standard bit (bit 0) is not set.
@@ -16,12 +16,12 @@ testegdi_nonstd(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != 0)
-		sysfatal("testegdi_nonstd: consumed: want 0, got %d", n);
+		sysfatal("testegdinonstd: consumed: want 0, got %d", n);
 	return 0;
 }
 
 static int
-testegdi_scrblt(void)
+testegdiscrblt(void)
 {
 	/*
 	 * ScrBlt primary order, NewOrder, SameClipping, all fields set.
@@ -51,20 +51,20 @@ testegdi_scrblt(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != (int)sizeof pkt)
-		sysfatal("testegdi_scrblt: consumed: want %d, got %d", (int)sizeof pkt, n);
+		sysfatal("testegdiscrblt: consumed: want %d, got %d", (int)sizeof pkt, n);
 	if(up.type != Uscrblt)
-		sysfatal("testegdi_scrblt: type: want %d, got %d", Uscrblt, up.type);
+		sysfatal("testegdiscrblt: type: want %d, got %d", Uscrblt, up.type);
 	if(up.x != 10 || up.y != 20)
-		sysfatal("testegdi_scrblt: pos: want (10,20), got (%d,%d)", up.x, up.y);
+		sysfatal("testegdiscrblt: pos: want (10,20), got (%d,%d)", up.x, up.y);
 	if(up.xsz != 100 || up.ysz != 100)
-		sysfatal("testegdi_scrblt: size: want (100,100), got (%d,%d)", up.xsz, up.ysz);
+		sysfatal("testegdiscrblt: size: want (100,100), got (%d,%d)", up.xsz, up.ysz);
 	if(up.sx != 5 || up.sy != 15)
-		sysfatal("testegdi_scrblt: src: want (5,15), got (%d,%d)", up.sx, up.sy);
+		sysfatal("testegdiscrblt: src: want (5,15), got (%d,%d)", up.sx, up.sy);
 	return 0;
 }
 
 static int
-testegdi_scrblt_clipped(void)
+testegdiscrblclip(void)
 {
 	/*
 	 * ScrBlt with Clipped flag set.
@@ -98,20 +98,20 @@ testegdi_scrblt_clipped(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != (int)sizeof pkt)
-		sysfatal("testegdi_scrblt_clipped: consumed: want %d, got %d", (int)sizeof pkt, n);
+		sysfatal("testegdiscrblclip: consumed: want %d, got %d", (int)sizeof pkt, n);
 	if(up.type != Uscrblt)
-		sysfatal("testegdi_scrblt_clipped: type: want %d, got %d", Uscrblt, up.type);
+		sysfatal("testegdiscrblclip: type: want %d, got %d", Uscrblt, up.type);
 	if(up.x != 10 || up.y != 20)
-		sysfatal("testegdi_scrblt_clipped: pos: want (10,20), got (%d,%d)", up.x, up.y);
+		sysfatal("testegdiscrblclip: pos: want (10,20), got (%d,%d)", up.x, up.y);
 	if(up.xsz != 100 || up.ysz != 80)
-		sysfatal("testegdi_scrblt_clipped: size: want (100,80), got (%d,%d)", up.xsz, up.ysz);
+		sysfatal("testegdiscrblclip: size: want (100,80), got (%d,%d)", up.xsz, up.ysz);
 	if(up.sx != 5 || up.sy != 15)
-		sysfatal("testegdi_scrblt_clipped: src: want (5,15), got (%d,%d)", up.sx, up.sy);
+		sysfatal("testegdiscrblclip: src: want (5,15), got (%d,%d)", up.sx, up.sy);
 	return 0;
 }
 
 static int
-testegdi_memblt(void)
+testegdimemblt(void)
 {
 	/*
 	 * MemBlt primary order, NewOrder, SameClipping, all fields set.
@@ -141,28 +141,28 @@ testegdi_memblt(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != (int)sizeof pkt)
-		sysfatal("testegdi_memblt: consumed: want %d, got %d", (int)sizeof pkt, n);
+		sysfatal("testegdimemblt: consumed: want %d, got %d", (int)sizeof pkt, n);
 	if(up.type != Umemblt)
-		sysfatal("testegdi_memblt: type: want %d, got %d", Umemblt, up.type);
+		sysfatal("testegdimemblt: type: want %d, got %d", Umemblt, up.type);
 	if(up.cid != 1)
-		sysfatal("testegdi_memblt: cid: want 1, got %d", up.cid);
+		sysfatal("testegdimemblt: cid: want 1, got %d", up.cid);
 	if(up.coff != 5)
-		sysfatal("testegdi_memblt: coff: want 5, got %d", up.coff);
+		sysfatal("testegdimemblt: coff: want 5, got %d", up.coff);
 	if(up.x != 50 || up.y != 60)
-		sysfatal("testegdi_memblt: pos: want (50,60), got (%d,%d)", up.x, up.y);
+		sysfatal("testegdimemblt: pos: want (50,60), got (%d,%d)", up.x, up.y);
 	if(up.xm != 149 || up.ym != 159)
-		sysfatal("testegdi_memblt: max: want (149,159), got (%d,%d)", up.xm, up.ym);
+		sysfatal("testegdimemblt: max: want (149,159), got (%d,%d)", up.xm, up.ym);
 	if(up.xsz != 100 || up.ysz != 100)
-		sysfatal("testegdi_memblt: size: want (100,100), got (%d,%d)", up.xsz, up.ysz);
+		sysfatal("testegdimemblt: size: want (100,100), got (%d,%d)", up.xsz, up.ysz);
 	if(up.sx != 10 || up.sy != 20)
-		sysfatal("testegdi_memblt: src: want (10,20), got (%d,%d)", up.sx, up.sy);
+		sysfatal("testegdimemblt: src: want (10,20), got (%d,%d)", up.sx, up.sy);
 	if(up.clipped != 0)
-		sysfatal("testegdi_memblt: clipped: want 0, got %d", up.clipped);
+		sysfatal("testegdimemblt: clipped: want 0, got %d", up.clipped);
 	return 0;
 }
 
 static int
-testegdi_memblt_clipped(void)
+testegdimembltclip(void)
 {
 	/*
 	 * MemBlt with Clipped flag set.
@@ -199,20 +199,20 @@ testegdi_memblt_clipped(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != (int)sizeof pkt)
-		sysfatal("testegdi_memblt_clipped: consumed: want %d, got %d", (int)sizeof pkt, n);
+		sysfatal("testegdimembltclip: consumed: want %d, got %d", (int)sizeof pkt, n);
 	if(up.type != Umemblt)
-		sysfatal("testegdi_memblt_clipped: type: want %d, got %d", Umemblt, up.type);
+		sysfatal("testegdimembltclip: type: want %d, got %d", Umemblt, up.type);
 	if(up.clipped != 1)
-		sysfatal("testegdi_memblt_clipped: clipped: want 1, got %d", up.clipped);
+		sysfatal("testegdimembltclip: clipped: want 1, got %d", up.clipped);
 	if(up.cx != 0 || up.cy != 0)
-		sysfatal("testegdi_memblt_clipped: clip pos: want (0,0), got (%d,%d)", up.cx, up.cy);
+		sysfatal("testegdimembltclip: clip pos: want (0,0), got (%d,%d)", up.cx, up.cy);
 	if(up.cxsz != 200 || up.cysz != 100)
-		sysfatal("testegdi_memblt_clipped: clip size: want (200,100), got (%d,%d)", up.cxsz, up.cysz);
+		sysfatal("testegdimembltclip: clip size: want (200,100), got (%d,%d)", up.cxsz, up.cysz);
 	return 0;
 }
 
 static int
-testegdi_cmapcache(void)
+testegdicmapcache(void)
 {
 	/*
 	 * CacheCmap secondary order: cache a 256-entry colour map.
@@ -240,20 +240,20 @@ testegdi_cmapcache(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != 1033)
-		sysfatal("testegdi_cmapcache: consumed: want 1033, got %d", n);
+		sysfatal("testegdicmapcache: consumed: want 1033, got %d", n);
 	if(up.type != Umcache)
-		sysfatal("testegdi_cmapcache: type: want %d, got %d", Umcache, up.type);
+		sysfatal("testegdicmapcache: type: want %d, got %d", Umcache, up.type);
 	if(up.cid != 3)
-		sysfatal("testegdi_cmapcache: cid: want 3, got %d", up.cid);
+		sysfatal("testegdicmapcache: cid: want 3, got %d", up.cid);
 	if(up.nbytes != 1024)
-		sysfatal("testegdi_cmapcache: nbytes: want 1024, got %d", up.nbytes);
+		sysfatal("testegdicmapcache: nbytes: want 1024, got %d", up.nbytes);
 	if(up.bytes != pkt+9)
-		sysfatal("testegdi_cmapcache: bytes ptr: want pkt+9, got something else");
+		sysfatal("testegdicmapcache: bytes ptr: want pkt+9, got something else");
 	return 0;
 }
 
 static int
-testegdi_imgcache2(void)
+testegdiimgcache2(void)
 {
 	/*
 	 * CacheImage2 secondary order (uncompressed, no persistent key).
@@ -285,26 +285,26 @@ testegdi_imgcache2(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != (int)sizeof pkt)
-		sysfatal("testegdi_imgcache2: consumed: want %d, got %d", (int)sizeof pkt, n);
+		sysfatal("testegdiimgcache2: consumed: want %d, got %d", (int)sizeof pkt, n);
 	if(up.type != Uicache)
-		sysfatal("testegdi_imgcache2: type: want %d, got %d", Uicache, up.type);
+		sysfatal("testegdiimgcache2: type: want %d, got %d", Uicache, up.type);
 	if(up.cid != 0)
-		sysfatal("testegdi_imgcache2: cid: want 0, got %d", up.cid);
+		sysfatal("testegdiimgcache2: cid: want 0, got %d", up.cid);
 	if(up.coff != 2)
-		sysfatal("testegdi_imgcache2: coff: want 2, got %d", up.coff);
+		sysfatal("testegdiimgcache2: coff: want 2, got %d", up.coff);
 	if(up.xsz != 8 || up.ysz != 8)
-		sysfatal("testegdi_imgcache2: dim: want (8,8), got (%d,%d)", up.xsz, up.ysz);
+		sysfatal("testegdiimgcache2: dim: want (8,8), got (%d,%d)", up.xsz, up.ysz);
 	if(up.nbytes != 32)
-		sysfatal("testegdi_imgcache2: nbytes: want 32, got %d", up.nbytes);
+		sysfatal("testegdiimgcache2: nbytes: want 32, got %d", up.nbytes);
 	if(up.bytes != pkt+10)
-		sysfatal("testegdi_imgcache2: bytes ptr: want pkt+10, got something else");
+		sysfatal("testegdiimgcache2: bytes ptr: want pkt+10, got something else");
 	if(up.iscompr != 0)
-		sysfatal("testegdi_imgcache2: iscompr: want 0, got %d", up.iscompr);
+		sysfatal("testegdiimgcache2: iscompr: want 0, got %d", up.iscompr);
 	return 0;
 }
 
 static int
-testegdi_secondary_unsupported(void)
+testegdisecunsup(void)
 {
 	/*
 	 * Secondary order with an xorder value not present in auxtab
@@ -327,20 +327,20 @@ testegdi_secondary_unsupported(void)
 	memset(&up, 0, sizeof up);
 	n = getfupd(&up, pkt, sizeof pkt);
 	if(n != 20)
-		sysfatal("testegdi_secondary_unsupported: consumed: want 20, got %d", n);
+		sysfatal("testegdisecunsup: consumed: want 20, got %d", n);
 	return 0;
 }
 
 int
 egditests(void)
 {
-	testegdi_nonstd();
-	testegdi_scrblt();
-	testegdi_scrblt_clipped();
-	testegdi_memblt();
-	testegdi_memblt_clipped();
-	testegdi_cmapcache();
-	testegdi_imgcache2();
-	testegdi_secondary_unsupported();
+	testegdinonstd();
+	testegdiscrblt();
+	testegdiscrblclip();
+	testegdimemblt();
+	testegdimembltclip();
+	testegdicmapcache();
+	testegdiimgcache2();
+	testegdisecunsup();
 	return 0;
 }

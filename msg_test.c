@@ -1,7 +1,7 @@
 #include "msg.c"
 
 static int
-testputmsg_xconnect(void){
+testputmsgxconnect(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -12,18 +12,18 @@ testputmsg_xconnect(void){
 	n = putmsg(buf, sizeof buf, &m);
 
 	if(n < 0)
-		sysfatal("testputmsg_xconnect: unexpected error: %r\n");
+		sysfatal("testputmsgxconnect: unexpected error: %r\n");
 	s = smprint("%.*H", n, buf);
 	want = "0300002722E00000000000436F6F6B69653A206D737473686173683D780D0A0100080001000000";
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_xconnect: want %s, got %s", want, s);
+		sysfatal("testputmsgxconnect: want %s, got %s", want, s);
 	free(s);
 	return 0;
 
 }
 
 static int
-testputmsg_xhangup(void){
+testputmsgxhangup(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -33,17 +33,17 @@ testputmsg_xhangup(void){
 	n = putmsg(buf, sizeof buf, &m);
 
 	if(n < 0)
-		sysfatal("testputmsg_xhangup: unexpected error: %r\n");
+		sysfatal("testputmsgxhangup: unexpected error: %r\n");
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "03000007028080") != 0)
-		sysfatal("testputmsg_xhangup: want %s, got %s", want, s);
+		sysfatal("testputmsgxhangup: want %s, got %s", want, s);
 	free(s);
 	return 0;
 
 }
 
 static int
-testputmsg_mattach(void){
+testputmsgmattach(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -53,17 +53,17 @@ testputmsg_mattach(void){
 	n = putmsg(buf, sizeof buf, &m);
 
 	if(n < 0)
-		sysfatal("testputmsg_mattach: unexpected error: %r\n");
+		sysfatal("testputmsgmattach: unexpected error: %r\n");
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "0300000802F08028") != 0)
-		sysfatal("testputmsg_mattach: want %s, got %s", want, s);
+		sysfatal("testputmsgmattach: want %s, got %s", want, s);
 	free(s);
 	return 0;
 
 }
 
 static int
-testputmsg_mjoin(void){
+testputmsgmjoin(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -75,17 +75,17 @@ testputmsg_mjoin(void){
 	n = putmsg(buf, sizeof buf, &m);
 
 	if(n < 0)
-		sysfatal("testputmsg_mjoin: unexpected error: %r\n");
+		sysfatal("testputmsgmjoin: unexpected error: %r\n");
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "0300000C02F08038DEADBEEF") != 0)
-		sysfatal("testputmsg_mjoin: want %s, got %s", want, s);
+		sysfatal("testputmsgmjoin: want %s, got %s", want, s);
 	free(s);
 	return 0;
 
 }
 
 static int
-testputmsg_merectdom(void){
+testputmsgmerectdom(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -94,11 +94,11 @@ testputmsg_merectdom(void){
 	m.type = Merectdom;
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_merectdom: unexpected error: %r\n");
+		sysfatal("testputmsgmerectdom: unexpected error: %r\n");
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "0300000C02F0800400010001") != 0)
-		sysfatal("testputmsg_merectdom: want %s, got %s", want, s);
+		sysfatal("testputmsgmerectdom: want %s, got %s", want, s);
 	free(s);
 	return 0;
 
@@ -106,7 +106,7 @@ testputmsg_merectdom(void){
 
 
 static int
-testputmsg_mconnect(void){
+testputmsgmconnect(void){
 	int n;
 	char *s, *want;
 	uchar buf[1024];
@@ -129,14 +129,14 @@ testputmsg_mconnect(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_mconnect: unexpected error: %r\n");
+		sysfatal("testputmsgmconnect: unexpected error: %r\n");
 
 	want = "030001A602F0807F6582019A0401010401010101FF30200202002202020002020200000202000102020000020200010202FFFF020200023020020200010202000102020001020200010202000002020001020204200202000230200202FFFF0202FFFF0202FFFF0202000102020000020200010202FFFF0202000204820127000500147C0001811E000800100001C00044756361811001C0D800040008000004000301CA03AA09040000280A00005400530043004C00490045004E0054002D00540045005300540000000000000004000000000000000C0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001CA01000000000018000F0003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007000100000002C00C00000000000000000004C00C00090000000000000003C0200002000000434C49505244520080000000524450445200000080000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0){
-		fprint(2, "testputmsg_mconnect: want '%s', got '%s'\n", want, s);
-		sysfatal("testputmsg_mconnect");
+		fprint(2, "testputmsgmconnect: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsgmconnect");
 	}
 	free(s);
 	return 0;
@@ -144,7 +144,7 @@ testputmsg_mconnect(void){
 }
 
 static int
-testputmsg_dclientinfo(void){
+testputmsgdclientinfo(void){
 	int n;
 	char *s, *want;
 	uchar buf[4*1024];
@@ -161,14 +161,14 @@ testputmsg_dclientinfo(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_dclientinfo: unexpected error: %r\n");
+		sysfatal("testputmsgdclientinfo: unexpected error: %r\n");
 
 	want = "0300013302F08064BEEF03EB7081244000000000000000BB0300000E0010000C0018000600540045005300540044004F004D00000074006500730074007500730065007200000073006500630072006500740000006500780070006C006F007200650072002E00650078006500000043003A005C00000002000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000CE000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0){
-		fprint(2, "testputmsg_dclientinfo: want '%s', got '%s'\n", want, s);
-		sysfatal("testputmsg_dclientinfo");
+		fprint(2, "testputmsgdclientinfo: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsgdclientinfo");
 	}
 	free(s);
 	return 0;
@@ -176,7 +176,7 @@ testputmsg_dclientinfo(void){
 }
 
 static int
-testputmsg_mactivated(void){
+testputmsgmactivated(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -191,14 +191,14 @@ testputmsg_mactivated(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_mactivated: unexpected error: %r\n");
+		sysfatal("testputmsgmactivated: unexpected error: %r\n");
 
 	want = "0300018402F08064BBBB03EB70817575011300BBBBCCCC0000AAAA07005E01506C616E2039000800000001001800000000000002000200000504000000000000000002001E000000010001000100000458020000010001000000010000000002030058000000000000000000000000000000000000000000010014000000010000006A000000010100000000000000000000000000000000000000000000000000000000A1060000000000000084030000000000E40004001300280000000003780000007800000050010000000000000000000000000000000000000000000008000800000014000D005800110000000904000004000000000000000C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000C00080000000000140008000000000010003400FE000400FE000400FE000800FE000800FE001000FE002000FE004000FE008000FE000001400000080001000100000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0){
-		fprint(2, "testputmsg_mactivated: want '%s', got '%s'\n", want, s);
-		sysfatal("testputmsg_mactivated");
+		fprint(2, "testputmsgmactivated: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsgmactivated");
 	}
 	free(s);
 	return 0;
@@ -206,7 +206,7 @@ testputmsg_mactivated(void){
 }
 
 static int
-testputmsg_mvchan(void){
+testputmsgmvchan(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -227,19 +227,19 @@ testputmsg_mvchan(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_mvchan: unexpected error: %r\n");
+		sysfatal("testputmsgmvchan: unexpected error: %r\n");
 
 	want = "0300001E02F080641111222270800F070000001300000061626364656667";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_mvchan: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgmvchan: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 }
 
 static int
-testputmsg_async(void){
+testputmsgasync(void){
 	int n;
 	char *s, *want;
 	uchar buf[512];
@@ -252,19 +252,19 @@ testputmsg_async(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_async: unexpected error: %r\n");
+		sysfatal("testputmsgasync: unexpected error: %r\n");
 
 	want = "0300002502F08064222203EB70801616001700222233330000000116001F00000001001111";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_async: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgasync: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 }
 
 static int
-testputmsg_actl_cooperate(void){
+testputmsgactlcoop(void){
 	int n;
 	char *s, *want;
 	uchar buf[1024];
@@ -272,19 +272,19 @@ testputmsg_actl_cooperate(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_actl_cooperate: unexpected error: %r\n");
+		sysfatal("testputmsgactlcoop: unexpected error: %r\n");
 
 	want = "0300002902F08064111103EB70801A1A00170011112222000000011A00140000000400000000000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_actl_cooperate: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgactlcoop: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 }
 
 static int
-testputmsg_actl_reqctl(void){
+testputmsgactlreqctl(void){
 	int n;
 	char *s, *want;
 	uchar buf[1024];
@@ -292,19 +292,19 @@ testputmsg_actl_reqctl(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_actl_reqctl: unexpected error: %r\n");
+		sysfatal("testputmsgactlreqctl: unexpected error: %r\n");
 
 	want = "0300002902F08064333303EB70801A1A00170033334444000000011A00140000000100000000000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_actl_reqctl: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgactlreqctl: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 }
 
 static int
-testputmsg_afontls(void){
+testputmsgafontls(void){
 	int n;
 	char *s, *want;
 	uchar buf[1024];
@@ -312,19 +312,19 @@ testputmsg_afontls(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_afontls: unexpected error: %r\n");
+		sysfatal("testputmsgafontls: unexpected error: %r\n");
 
 	want = "0300002902F08064444403EB70801A1A00170044445555000000011A00270000000000000003003200";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_afontls: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgafontls: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 }
 
 static int
-testputmsg_ainput_sync(void){
+testputmsgainputsync(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -341,20 +341,20 @@ testputmsg_ainput_sync(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_ainput_sync: unexpected error: %r\n");
+		sysfatal("testputmsgainputsync: unexpected error: %r\n");
 
 	want = "0300003102F08064111103EB70802222001700111122220000000122001C00000001000000000000000000000000000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_ainput_sync: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgainputsync: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 
 }
 
 static int
-testputmsg_ainput_keycode(void){
+testputmsgainputkey(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
@@ -374,20 +374,20 @@ testputmsg_ainput_keycode(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_ainput_keycode: unexpected error: %r\n");
+		sysfatal("testputmsgainputkey: unexpected error: %r\n");
 
 	want = "0300003102F08064111103EB70802222001700111122220000000122001C0000000100000033330000040044002A000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_ainput_keycode: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgainputkey: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 
 }
 
 static int
-testputmsg_lreq(void){
+testputmsglreq(void){
 	int n;
 	char *s, *want;
 	uchar buf[2*1024];
@@ -396,7 +396,7 @@ testputmsg_lreq(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_lreq: unexpected error: %r\n");
+		sysfatal("testputmsglreq: unexpected error: %r\n");
 
 	want = 
 		// TPKT header
@@ -450,15 +450,15 @@ testputmsg_lreq(void){
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0){
-		fprint(2, "testputmsg_lreq: want '%s', got '%s'\n", want, s);
-		sysfatal("testputmsg_lreq");
+		fprint(2, "testputmsglreq: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsglreq");
 	}
 	free(s);
 	return 0;
 }
 
 static int
-testputmsg_lnolicense(void){
+testputmsglnolicense(void){
 	int n;
 	char *s, *want;
 	uchar buf[1024];
@@ -466,20 +466,20 @@ testputmsg_lnolicense(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_lnolicense: unexpected error: %r\n");
+		sysfatal("testputmsglnolicense: unexpected error: %r\n");
 
 	want =
 		"0300002302F08064111103EB70801480000000FF031000020000000100000004000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_lnolicense: want '%s', got '%s'", want, s);
+		sysfatal("testputmsglnolicense: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 }
 
 static int
-testputmsg_dsupress(void){
+testputmsgdsupress(void){
 	int n;
 	char *s, *want;
 	uchar buf[512];
@@ -494,21 +494,21 @@ testputmsg_dsupress(void){
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testputmsg_dsupress: unexpected error: %r\n");
+		sysfatal("testputmsgdsupress: unexpected error: %r\n");
 
 	want =
 		"0300002D02F08064222203EB70801E1E00170022223333000000011E00230000000100000000000000FF041F03";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg_dsupress: want '%s', got '%s'", want, s);
+		sysfatal("testputmsgdsupress: want '%s', got '%s'", want, s);
 	free(s);
 	return 0;
 }
 
 
 static int
-testgetmsg_fp2(void)
+testgetmsgfp2(void)
 {
 	/* Fast-path update: 2-byte length header */
 	int n, nb;
@@ -519,18 +519,18 @@ testgetmsg_fp2(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp2: unexpected error: %r");
+		sysfatal("testgetmsgfp2: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_fp2: type: want %d, got %d", Aupdate, m.type);
+		sysfatal("testgetmsgfp2: type: want %d, got %d", Aupdate, m.type);
 	if(m.ndata != 4)
-		sysfatal("testgetmsg_fp2: ndata: want 4, got %d", m.ndata);
+		sysfatal("testgetmsgfp2: ndata: want 4, got %d", m.ndata);
 	if(m.getshare != getshareF)
-		sysfatal("testgetmsg_fp2: getshare: expected getshareF");
+		sysfatal("testgetmsgfp2: getshare: expected getshareF");
 	return 0;
 }
 
 static int
-testgetmsg_fp3(void)
+testgetmsgfp3(void)
 {
 	/* Fast-path update: 3-byte length header */
 	int n, nb;
@@ -541,18 +541,18 @@ testgetmsg_fp3(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp3: unexpected error: %r");
+		sysfatal("testgetmsgfp3: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_fp3: type: want %d, got %d", Aupdate, m.type);
+		sysfatal("testgetmsgfp3: type: want %d, got %d", Aupdate, m.type);
 	if(m.ndata != 3)
-		sysfatal("testgetmsg_fp3: ndata: want 3, got %d", m.ndata);
+		sysfatal("testgetmsgfp3: ndata: want 3, got %d", m.ndata);
 	if(m.getshare != getshareF)
-		sysfatal("testgetmsg_fp3: getshare: expected getshareF");
+		sysfatal("testgetmsgfp3: getshare: expected getshareF");
 	return 0;
 }
 
 static int
-testgetmsg_xconnected_tls(void)
+testgetmsgxconntls(void)
 {
 	/* X.224 connection confirm with TLS negotiation response */
 	int n, nb;
@@ -563,16 +563,16 @@ testgetmsg_xconnected_tls(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_xconnected_tls: unexpected error: %r");
+		sysfatal("testgetmsgxconntls: unexpected error: %r");
 	if(m.type != Xconnected)
-		sysfatal("testgetmsg_xconnected_tls: type: want %d, got %d", Xconnected, m.type);
+		sysfatal("testgetmsgxconntls: type: want %d, got %d", Xconnected, m.type);
 	if(m.negproto != ProtoTLS)
-		sysfatal("testgetmsg_xconnected_tls: negproto: want %d (ProtoTLS), got %d", ProtoTLS, m.negproto);
+		sysfatal("testgetmsgxconntls: negproto: want %d (ProtoTLS), got %d", ProtoTLS, m.negproto);
 	return 0;
 }
 
 static int
-testgetmsg_xconnected_nonego(void)
+testgetmsgxconnnonego(void)
 {
 	/* X.224 connection confirm with non-matching nego type: negproto stays 0 */
 	int n, nb;
@@ -583,16 +583,16 @@ testgetmsg_xconnected_nonego(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_xconnected_nonego: unexpected error: %r");
+		sysfatal("testgetmsgxconnnonego: unexpected error: %r");
 	if(m.type != Xconnected)
-		sysfatal("testgetmsg_xconnected_nonego: type: want %d, got %d", Xconnected, m.type);
+		sysfatal("testgetmsgxconnnonego: type: want %d, got %d", Xconnected, m.type);
 	if(m.negproto != 0)
-		sysfatal("testgetmsg_xconnected_nonego: negproto: want 0, got %d", m.negproto);
+		sysfatal("testgetmsgxconnnonego: negproto: want 0, got %d", m.negproto);
 	return 0;
 }
 
 static int
-testgetmsg_mattached_uid(void)
+testgetmsgmattacheduid(void)
 {
 	/* MCS Attach User Confirm with userId present */
 	int n, nb;
@@ -603,16 +603,16 @@ testgetmsg_mattached_uid(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_mattached_uid: unexpected error: %r");
+		sysfatal("testgetmsgmattacheduid: unexpected error: %r");
 	if(m.type != Mattached)
-		sysfatal("testgetmsg_mattached_uid: type: want %d, got %d", Mattached, m.type);
+		sysfatal("testgetmsgmattacheduid: type: want %d, got %d", Mattached, m.type);
 	if(m.mcsuid != 0xBEEF)
-		sysfatal("testgetmsg_mattached_uid: mcsuid: want 0xBEEF, got 0x%X", m.mcsuid);
+		sysfatal("testgetmsgmattacheduid: mcsuid: want 0xBEEF, got 0x%X", m.mcsuid);
 	return 0;
 }
 
 static int
-testgetmsg_mattached_nouid(void)
+testgetmsgmattachednouid(void)
 {
 	/* MCS Attach User Confirm without userId */
 	int n, nb;
@@ -623,16 +623,16 @@ testgetmsg_mattached_nouid(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_mattached_nouid: unexpected error: %r");
+		sysfatal("testgetmsgmattachednouid: unexpected error: %r");
 	if(m.type != Mattached)
-		sysfatal("testgetmsg_mattached_nouid: type: want %d, got %d", Mattached, m.type);
+		sysfatal("testgetmsgmattachednouid: type: want %d, got %d", Mattached, m.type);
 	if(m.mcsuid != 0)
-		sysfatal("testgetmsg_mattached_nouid: mcsuid: want 0, got 0x%X", m.mcsuid);
+		sysfatal("testgetmsgmattachednouid: mcsuid: want 0, got 0x%X", m.mcsuid);
 	return 0;
 }
 
 static int
-testgetmsg_mjoined(void)
+testgetmsgmjoined(void)
 {
 	/* MCS Channel Join Confirm */
 	int n, nb;
@@ -643,14 +643,14 @@ testgetmsg_mjoined(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_mjoined: unexpected error: %r");
+		sysfatal("testgetmsgmjoined: unexpected error: %r");
 	if(m.type != Mjoined)
-		sysfatal("testgetmsg_mjoined: type: want %d, got %d", Mjoined, m.type);
+		sysfatal("testgetmsgmjoined: type: want %d, got %d", Mjoined, m.type);
 	return 0;
 }
 
 static int
-testgetmsg_mclosing(void)
+testgetmsgmclosing(void)
 {
 	/* Disconnect Provider Ultimatum */
 	int n, nb;
@@ -661,14 +661,14 @@ testgetmsg_mclosing(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_mclosing: unexpected error: %r");
+		sysfatal("testgetmsgmclosing: unexpected error: %r");
 	if(m.type != Mclosing)
-		sysfatal("testgetmsg_mclosing: type: want %d, got %d", Mclosing, m.type);
+		sysfatal("testgetmsgmclosing: type: want %d, got %d", Mclosing, m.type);
 	return 0;
 }
 
 static int
-testgetmsg_mvchan(void)
+testgetmsgmvchan(void)
 {
 	/* MCS virtual channel data (non-global channel) */
 	int n, nb;
@@ -679,24 +679,24 @@ testgetmsg_mvchan(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_mvchan: unexpected error: %r");
+		sysfatal("testgetmsgmvchan: unexpected error: %r");
 	if(m.type != Mvchan)
-		sysfatal("testgetmsg_mvchan: type: want %d, got %d", Mvchan, m.type);
+		sysfatal("testgetmsgmvchan: type: want %d, got %d", Mvchan, m.type);
 	if(m.chanid != 0x2222)
-		sysfatal("testgetmsg_mvchan: chanid: want 0x2222, got 0x%X", m.chanid);
+		sysfatal("testgetmsgmvchan: chanid: want 0x2222, got 0x%X", m.chanid);
 	if(m.len != 7)
-		sysfatal("testgetmsg_mvchan: len: want 7, got %d", m.len);
+		sysfatal("testgetmsgmvchan: len: want 7, got %d", m.len);
 	if(m.flags != 0x13)
-		sysfatal("testgetmsg_mvchan: flags: want 0x13, got 0x%lX", m.flags);
+		sysfatal("testgetmsgmvchan: flags: want 0x13, got 0x%lX", m.flags);
 	if(m.ndata != 7)
-		sysfatal("testgetmsg_mvchan: ndata: want 7, got %d", m.ndata);
+		sysfatal("testgetmsgmvchan: ndata: want 7, got %d", m.ndata);
 	if(memcmp(m.data, "abcdefg", 7) != 0)
-		sysfatal("testgetmsg_mvchan: data mismatch");
+		sysfatal("testgetmsgmvchan: data mismatch");
 	return 0;
 }
 
 static int
-testgetmsg_sp_update(void)
+testgetmsgspupdate(void)
 {
 	/* Slow-path update on global channel */
 	int n, nb;
@@ -707,18 +707,18 @@ testgetmsg_sp_update(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_update: unexpected error: %r");
+		sysfatal("testgetmsgspupdate: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_sp_update: type: want %d, got %d", Aupdate, m.type);
+		sysfatal("testgetmsgspupdate: type: want %d, got %d", Aupdate, m.type);
 	if(m.ndata != 4)
-		sysfatal("testgetmsg_sp_update: ndata: want 4, got %d", m.ndata);
+		sysfatal("testgetmsgspupdate: ndata: want 4, got %d", m.ndata);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_sp_update: getshare: expected getshareT");
+		sysfatal("testgetmsgspupdate: getshare: expected getshareT");
 	return 0;
 }
 
 static int
-testgetmsg_mattach_err(void)
+testgetmsgmattacherr(void)
 {
 	/* Error: MCS Attach User Confirm with non-zero error result */
 	int n, nb;
@@ -729,12 +729,12 @@ testgetmsg_mattach_err(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n >= 0)
-		sysfatal("testgetmsg_mattach_err: expected error, got %d", n);
+		sysfatal("testgetmsgmattacherr: expected error, got %d", n);
 	return 0;
 }
 
 static int
-testgetmsg_mjoin_err(void)
+testgetmsgmjoinerr(void)
 {
 	/* Error: MCS Channel Join Confirm with non-zero error result */
 	int n, nb;
@@ -745,12 +745,12 @@ testgetmsg_mjoin_err(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n >= 0)
-		sysfatal("testgetmsg_mjoin_err: expected error, got %d", n);
+		sysfatal("testgetmsgmjoinerr: expected error, got %d", n);
 	return 0;
 }
 
 static int
-testgetmsg_fp_encr_err(void)
+testgetmsgfpencr(void)
 {
 	/* Error: legacy encryption in fast-path PDU */
 	int n, nb;
@@ -761,12 +761,12 @@ testgetmsg_fp_encr_err(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n >= 0)
-		sysfatal("testgetmsg_fp_encr_err: expected error, got %d", n);
+		sysfatal("testgetmsgfpencr: expected error, got %d", n);
 	return 0;
 }
 
 static int
-testgetmsg_aflow(void)
+testgetmsgaflow(void)
 {
 	/* Flow PDU on global channel (isflowpdu): GSHORT = 0x8000 → Aflow */
 	int n, nb;
@@ -777,14 +777,14 @@ testgetmsg_aflow(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_aflow: unexpected error: %r");
+		sysfatal("testgetmsgaflow: unexpected error: %r");
 	if(m.type != Aflow)
-		sysfatal("testgetmsg_aflow: type: want %d (Aflow), got %d", Aflow, m.type);
+		sysfatal("testgetmsgaflow: type: want %d (Aflow), got %d", Aflow, m.type);
 	return 0;
 }
 
 static int
-testgetmsg_licensepk_sctlv1(void)
+testgetmsglicpksctlv1(void)
 {
 	/*
 	 * Slow-path on global channel with Slicensepk flag but sctlver==1.
@@ -799,18 +799,18 @@ testgetmsg_licensepk_sctlv1(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_licensepk_sctlv1: unexpected error: %r");
+		sysfatal("testgetmsglicpksctlv1: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_licensepk_sctlv1: type: want %d (Aupdate), got %d", Aupdate, m.type);
+		sysfatal("testgetmsglicpksctlv1: type: want %d (Aupdate), got %d", Aupdate, m.type);
 	if(m.ndata != 4)
-		sysfatal("testgetmsg_licensepk_sctlv1: ndata: want 4, got %d", m.ndata);
+		sysfatal("testgetmsglicpksctlv1: ndata: want 4, got %d", m.ndata);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_licensepk_sctlv1: getshare: expected getshareT");
+		sysfatal("testgetmsglicpksctlv1: getshare: expected getshareT");
 	return 0;
 }
 
 static int
-testgetmsg_ldone(void)
+testgetmsgldone(void)
 {
 	/* License PDU with Notify (0xFF) type → Ldone */
 	int n, nb;
@@ -821,14 +821,14 @@ testgetmsg_ldone(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_ldone: unexpected error: %r");
+		sysfatal("testgetmsgldone: unexpected error: %r");
 	if(m.type != Ldone)
-		sysfatal("testgetmsg_ldone: type: want %d (Ldone), got %d", Ldone, m.type);
+		sysfatal("testgetmsgldone: type: want %d (Ldone), got %d", Ldone, m.type);
 	return 0;
 }
 
 static int
-testgetmsg_lneedlicense(void)
+testgetmsglneedlicense(void)
 {
 	/* License PDU with SNeedLicense (0x01) type → Lneedlicense */
 	int n, nb;
@@ -839,14 +839,14 @@ testgetmsg_lneedlicense(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_lneedlicense: unexpected error: %r");
+		sysfatal("testgetmsglneedlicense: unexpected error: %r");
 	if(m.type != Lneedlicense)
-		sysfatal("testgetmsg_lneedlicense: type: want %d (Lneedlicense), got %d", Lneedlicense, m.type);
+		sysfatal("testgetmsglneedlicense: type: want %d (Lneedlicense), got %d", Lneedlicense, m.type);
 	return 0;
 }
 
 static int
-testgetmsg_lhavechal(void)
+testgetmsglhavechal(void)
 {
 	/* License PDU with SHaveChal (0x02) type → Lhavechal */
 	int n, nb;
@@ -857,14 +857,14 @@ testgetmsg_lhavechal(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_lhavechal: unexpected error: %r");
+		sysfatal("testgetmsglhavechal: unexpected error: %r");
 	if(m.type != Lhavechal)
-		sysfatal("testgetmsg_lhavechal: type: want %d (Lhavechal), got %d", Lhavechal, m.type);
+		sysfatal("testgetmsglhavechal: type: want %d (Lhavechal), got %d", Lhavechal, m.type);
 	return 0;
 }
 
 static int
-testgetmsg_sp_deactivate(void)
+testgetmsgspdeactivate(void)
 {
 	/*
 	 * Slow-path Deactivate All PDU (PDUdeactivate=6) on global channel:
@@ -885,21 +885,21 @@ testgetmsg_sp_deactivate(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_deactivate: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgspdeactivate: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_sp_deactivate: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgspdeactivate: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_sp_deactivate: getshare: expected getshareT");
+		sysfatal("testgetmsgspdeactivate: getshare: expected getshareT");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_deactivate: getshare: unexpected error: %r");
+		sysfatal("testgetmsgspdeactivate: getshare: unexpected error: %r");
 	if(u.type != ShDeactivate)
-		sysfatal("testgetmsg_sp_deactivate: share type: want ShDeactivate (%d), got %d", ShDeactivate, u.type);
+		sysfatal("testgetmsgspdeactivate: share type: want ShDeactivate (%d), got %d", ShDeactivate, u.type);
 	return 0;
 }
 
 static int
-testgetmsg_sp_einfo(void)
+testgetmsgspeinfo(void)
 {
 	/*
 	 * Slow-path Set Error Info PDU (ADerrx=47) on global channel:
@@ -924,23 +924,23 @@ testgetmsg_sp_einfo(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_einfo: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgspeinfo: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_sp_einfo: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgspeinfo: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_sp_einfo: getshare: expected getshareT");
+		sysfatal("testgetmsgspeinfo: getshare: expected getshareT");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_einfo: getshare: unexpected error: %r");
+		sysfatal("testgetmsgspeinfo: getshare: unexpected error: %r");
 	if(u.type != ShEinfo)
-		sysfatal("testgetmsg_sp_einfo: share type: want ShEinfo (%d), got %d", ShEinfo, u.type);
+		sysfatal("testgetmsgspeinfo: share type: want ShEinfo (%d), got %d", ShEinfo, u.type);
 	if(u.err != 0x1234)
-		sysfatal("testgetmsg_sp_einfo: err: want 0x1234, got 0x%X", u.err);
+		sysfatal("testgetmsgspeinfo: err: want 0x1234, got 0x%X", u.err);
 	return 0;
 }
 
 static int
-testgetmsg_sp_orders(void)
+testgetmsgsporders(void)
 {
 	/*
 	 * Slow-path Drawing Orders update (ADdraw/UpdOrders=0) on global channel:
@@ -965,23 +965,23 @@ testgetmsg_sp_orders(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_orders: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgsporders: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_sp_orders: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgsporders: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_sp_orders: getshare: expected getshareT");
+		sysfatal("testgetmsgsporders: getshare: expected getshareT");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_orders: getshare: unexpected error: %r");
+		sysfatal("testgetmsgsporders: getshare: unexpected error: %r");
 	if(u.type != ShUorders)
-		sysfatal("testgetmsg_sp_orders: share type: want ShUorders (%d), got %d", ShUorders, u.type);
+		sysfatal("testgetmsgsporders: share type: want ShUorders (%d), got %d", ShUorders, u.type);
 	if(u.nr != 3)
-		sysfatal("testgetmsg_sp_orders: nr: want 3, got %d", u.nr);
+		sysfatal("testgetmsgsporders: nr: want 3, got %d", u.nr);
 	return 0;
 }
 
 static int
-testgetmsg_sp_bitmap(void)
+testgetmsgspbitmap(void)
 {
 	/*
 	 * Slow-path Bitmap Update (ADdraw/UpdBitmap=1) on global channel:
@@ -1006,23 +1006,23 @@ testgetmsg_sp_bitmap(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_bitmap: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgspbitmap: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_sp_bitmap: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgspbitmap: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_sp_bitmap: getshare: expected getshareT");
+		sysfatal("testgetmsgspbitmap: getshare: expected getshareT");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_bitmap: getshare: unexpected error: %r");
+		sysfatal("testgetmsgspbitmap: getshare: unexpected error: %r");
 	if(u.type != ShUimg)
-		sysfatal("testgetmsg_sp_bitmap: share type: want ShUimg (%d), got %d", ShUimg, u.type);
+		sysfatal("testgetmsgspbitmap: share type: want ShUimg (%d), got %d", ShUimg, u.type);
 	if(u.nr != 2)
-		sysfatal("testgetmsg_sp_bitmap: nr: want 2, got %d", u.nr);
+		sysfatal("testgetmsgspbitmap: nr: want 2, got %d", u.nr);
 	return 0;
 }
 
 static int
-testgetmsg_sp_cmap(void)
+testgetmsgspcmap(void)
 {
 	/*
 	 * Slow-path Color Table Cache Update (ADdraw/UpdCmap=2) on global channel:
@@ -1047,21 +1047,21 @@ testgetmsg_sp_cmap(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_cmap: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgspcmap: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_sp_cmap: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgspcmap: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_sp_cmap: getshare: expected getshareT");
+		sysfatal("testgetmsgspcmap: getshare: expected getshareT");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_cmap: getshare: unexpected error: %r");
+		sysfatal("testgetmsgspcmap: getshare: unexpected error: %r");
 	if(u.type != ShUcmap)
-		sysfatal("testgetmsg_sp_cmap: share type: want ShUcmap (%d), got %d", ShUcmap, u.type);
+		sysfatal("testgetmsgspcmap: share type: want ShUcmap (%d), got %d", ShUcmap, u.type);
 	return 0;
 }
 
 static int
-testgetmsg_sp_warp(void)
+testgetmsgspwarp(void)
 {
 	/*
 	 * Slow-path Pointer Position Update (ADcursor/PDUcursorwarp=3) on global channel:
@@ -1086,25 +1086,25 @@ testgetmsg_sp_warp(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_warp: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgspwarp: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_sp_warp: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgspwarp: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareT)
-		sysfatal("testgetmsg_sp_warp: getshare: expected getshareT");
+		sysfatal("testgetmsgspwarp: getshare: expected getshareT");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_sp_warp: getshare: unexpected error: %r");
+		sysfatal("testgetmsgspwarp: getshare: unexpected error: %r");
 	if(u.type != ShUwarp)
-		sysfatal("testgetmsg_sp_warp: share type: want ShUwarp (%d), got %d", ShUwarp, u.type);
+		sysfatal("testgetmsgspwarp: share type: want ShUwarp (%d), got %d", ShUwarp, u.type);
 	if(u.x != 100)
-		sysfatal("testgetmsg_sp_warp: x: want 100, got %d", u.x);
+		sysfatal("testgetmsgspwarp: x: want 100, got %d", u.x);
 	if(u.y != 200)
-		sysfatal("testgetmsg_sp_warp: y: want 200, got %d", u.y);
+		sysfatal("testgetmsgspwarp: y: want 200, got %d", u.y);
 	return 0;
 }
 
 static int
-testgetmsg_fp_orders(void)
+testgetmsgfporders(void)
 {
 	/*
 	 * Fast-path Drawing Orders update (FUpdOrders=0):
@@ -1120,23 +1120,23 @@ testgetmsg_fp_orders(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_orders: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgfporders: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_fp_orders: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgfporders: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareF)
-		sysfatal("testgetmsg_fp_orders: getshare: expected getshareF");
+		sysfatal("testgetmsgfporders: getshare: expected getshareF");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_orders: getshare: unexpected error: %r");
+		sysfatal("testgetmsgfporders: getshare: unexpected error: %r");
 	if(u.type != ShUorders)
-		sysfatal("testgetmsg_fp_orders: share type: want ShUorders (%d), got %d", ShUorders, u.type);
+		sysfatal("testgetmsgfporders: share type: want ShUorders (%d), got %d", ShUorders, u.type);
 	if(u.nr != 5)
-		sysfatal("testgetmsg_fp_orders: nr: want 5, got %d", u.nr);
+		sysfatal("testgetmsgfporders: nr: want 5, got %d", u.nr);
 	return 0;
 }
 
 static int
-testgetmsg_fp_bitmap(void)
+testgetmsgfpbitmap(void)
 {
 	/*
 	 * Fast-path Bitmap Update (FUpdBitmap=1):
@@ -1152,23 +1152,23 @@ testgetmsg_fp_bitmap(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_bitmap: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgfpbitmap: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_fp_bitmap: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgfpbitmap: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareF)
-		sysfatal("testgetmsg_fp_bitmap: getshare: expected getshareF");
+		sysfatal("testgetmsgfpbitmap: getshare: expected getshareF");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_bitmap: getshare: unexpected error: %r");
+		sysfatal("testgetmsgfpbitmap: getshare: unexpected error: %r");
 	if(u.type != ShUimg)
-		sysfatal("testgetmsg_fp_bitmap: share type: want ShUimg (%d), got %d", ShUimg, u.type);
+		sysfatal("testgetmsgfpbitmap: share type: want ShUimg (%d), got %d", ShUimg, u.type);
 	if(u.nr != 3)
-		sysfatal("testgetmsg_fp_bitmap: nr: want 3, got %d", u.nr);
+		sysfatal("testgetmsgfpbitmap: nr: want 3, got %d", u.nr);
 	return 0;
 }
 
 static int
-testgetmsg_fp_cmap(void)
+testgetmsgfpcmap(void)
 {
 	/*
 	 * Fast-path Color Table Cache Update (FUpdCmap=2):
@@ -1184,21 +1184,21 @@ testgetmsg_fp_cmap(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_cmap: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgfpcmap: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_fp_cmap: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgfpcmap: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareF)
-		sysfatal("testgetmsg_fp_cmap: getshare: expected getshareF");
+		sysfatal("testgetmsgfpcmap: getshare: expected getshareF");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_cmap: getshare: unexpected error: %r");
+		sysfatal("testgetmsgfpcmap: getshare: unexpected error: %r");
 	if(u.type != ShUcmap)
-		sysfatal("testgetmsg_fp_cmap: share type: want ShUcmap (%d), got %d", ShUcmap, u.type);
+		sysfatal("testgetmsgfpcmap: share type: want ShUcmap (%d), got %d", ShUcmap, u.type);
 	return 0;
 }
 
 static int
-testgetmsg_fp_warp(void)
+testgetmsgfpwarp(void)
 {
 	/*
 	 * Fast-path Pointer Position Update (FUpdWarp=8):
@@ -1214,25 +1214,25 @@ testgetmsg_fp_warp(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_warp: getmsg: unexpected error: %r");
+		sysfatal("testgetmsgfpwarp: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetmsg_fp_warp: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetmsgfpwarp: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareF)
-		sysfatal("testgetmsg_fp_warp: getshare: expected getshareF");
+		sysfatal("testgetmsgfpwarp: getshare: expected getshareF");
 	n = m.getshare(&u, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetmsg_fp_warp: getshare: unexpected error: %r");
+		sysfatal("testgetmsgfpwarp: getshare: unexpected error: %r");
 	if(u.type != ShUwarp)
-		sysfatal("testgetmsg_fp_warp: share type: want ShUwarp (%d), got %d", ShUwarp, u.type);
+		sysfatal("testgetmsgfpwarp: share type: want ShUwarp (%d), got %d", ShUwarp, u.type);
 	if(u.x != 100)
-		sysfatal("testgetmsg_fp_warp: x: want 100, got %d", u.x);
+		sysfatal("testgetmsgfpwarp: x: want 100, got %d", u.x);
 	if(u.y != 200)
-		sysfatal("testgetmsg_fp_warp: y: want 200, got %d", u.y);
+		sysfatal("testgetmsgfpwarp: y: want 200, got %d", u.y);
 	return 0;
 }
 
 static int
-testgetcaps_general_bitmap(void)
+testgetcapsgenbmp(void)
 {
 	/*
 	 * Server Demand Active PDU containing two capability sets:
@@ -1270,33 +1270,33 @@ testgetcaps_general_bitmap(void)
 	nb = dec16(buf, sizeof buf, hex, strlen(hex));
 	n = getmsg(&m, buf, nb);
 	if(n <= 0)
-		sysfatal("testgetcaps_general_bitmap: getmsg: unexpected error: %r");
+		sysfatal("testgetcapsgenbmp: getmsg: unexpected error: %r");
 	if(m.type != Aupdate)
-		sysfatal("testgetcaps_general_bitmap: type: want Aupdate, got %d", m.type);
+		sysfatal("testgetcapsgenbmp: type: want Aupdate, got %d", m.type);
 	if(m.getshare != getshareT)
-		sysfatal("testgetcaps_general_bitmap: getshare: expected getshareT");
+		sysfatal("testgetcapsgenbmp: getshare: expected getshareT");
 	n = m.getshare(&as, m.data, m.ndata);
 	if(n <= 0)
-		sysfatal("testgetcaps_general_bitmap: getshare: unexpected error: %r");
+		sysfatal("testgetcapsgenbmp: getshare: unexpected error: %r");
 	if(as.type != ShActivate)
-		sysfatal("testgetcaps_general_bitmap: share type: want ShActivate, got %d", as.type);
+		sysfatal("testgetcapsgenbmp: share type: want ShActivate, got %d", as.type);
 	n = getcaps(&caps, as.data, as.ndata);
 	if(n < 0)
-		sysfatal("testgetcaps_general_bitmap: getcaps: unexpected error: %r");
+		sysfatal("testgetcapsgenbmp: getcaps: unexpected error: %r");
 	if(!caps.general)
-		sysfatal("testgetcaps_general_bitmap: caps.general: want 1, got 0");
+		sysfatal("testgetcapsgenbmp: caps.general: want 1, got 0");
 	if(caps.canrefresh != 1)
-		sysfatal("testgetcaps_general_bitmap: canrefresh: want 1, got %d", caps.canrefresh);
+		sysfatal("testgetcapsgenbmp: canrefresh: want 1, got %d", caps.canrefresh);
 	if(caps.cansupress != 1)
-		sysfatal("testgetcaps_general_bitmap: cansupress: want 1, got %d", caps.cansupress);
+		sysfatal("testgetcapsgenbmp: cansupress: want 1, got %d", caps.cansupress);
 	if(!caps.bitmap)
-		sysfatal("testgetcaps_general_bitmap: caps.bitmap: want 1, got 0");
+		sysfatal("testgetcapsgenbmp: caps.bitmap: want 1, got 0");
 	if(caps.depth != 32)
-		sysfatal("testgetcaps_general_bitmap: depth: want 32, got %d", caps.depth);
+		sysfatal("testgetcapsgenbmp: depth: want 32, got %d", caps.depth);
 	if(caps.xsz != 1024)
-		sysfatal("testgetcaps_general_bitmap: xsz: want 1024, got %d", caps.xsz);
+		sysfatal("testgetcapsgenbmp: xsz: want 1024, got %d", caps.xsz);
 	if(caps.ysz != 768)
-		sysfatal("testgetcaps_general_bitmap: ysz: want 768, got %d", caps.ysz);
+		sysfatal("testgetcapsgenbmp: ysz: want 768, got %d", caps.ysz);
 	return 0;
 }
 
@@ -1304,52 +1304,52 @@ int
 msgtests(void)
 {
 	fmtinstall('H', encodefmt);
-	testputmsg_xconnect();
-	testputmsg_xhangup();
-	testputmsg_mattach();
-	testputmsg_mjoin();
-	testputmsg_merectdom();
-	testputmsg_mconnect();
-	testputmsg_dclientinfo();
-	testputmsg_mactivated();
-	testputmsg_mvchan();
-	testputmsg_async();
-	testputmsg_actl_cooperate();
-	testputmsg_actl_reqctl();
-	testputmsg_afontls();
-	testputmsg_ainput_sync();
-	testputmsg_ainput_keycode();
-	testputmsg_lreq();
-	testputmsg_lnolicense();
-	testputmsg_dsupress();
-	testgetmsg_fp2();
-	testgetmsg_fp3();
-	testgetmsg_xconnected_tls();
-	testgetmsg_xconnected_nonego();
-	testgetmsg_mattached_uid();
-	testgetmsg_mattached_nouid();
-	testgetmsg_mjoined();
-	testgetmsg_mclosing();
-	testgetmsg_mvchan();
-	testgetmsg_sp_update();
-	testgetmsg_mattach_err();
-	testgetmsg_mjoin_err();
-	testgetmsg_fp_encr_err();
-	testgetmsg_aflow();
-	testgetmsg_licensepk_sctlv1();
-	testgetmsg_ldone();
-	testgetmsg_lneedlicense();
-	testgetmsg_lhavechal();
-	testgetmsg_sp_deactivate();
-	testgetmsg_sp_einfo();
-	testgetmsg_sp_orders();
-	testgetmsg_sp_bitmap();
-	testgetmsg_sp_cmap();
-	testgetmsg_sp_warp();
-	testgetmsg_fp_orders();
-	testgetmsg_fp_bitmap();
-	testgetmsg_fp_cmap();
-	testgetmsg_fp_warp();
-	testgetcaps_general_bitmap();
+	testputmsgxconnect();
+	testputmsgxhangup();
+	testputmsgmattach();
+	testputmsgmjoin();
+	testputmsgmerectdom();
+	testputmsgmconnect();
+	testputmsgdclientinfo();
+	testputmsgmactivated();
+	testputmsgmvchan();
+	testputmsgasync();
+	testputmsgactlcoop();
+	testputmsgactlreqctl();
+	testputmsgafontls();
+	testputmsgainputsync();
+	testputmsgainputkey();
+	testputmsglreq();
+	testputmsglnolicense();
+	testputmsgdsupress();
+	testgetmsgfp2();
+	testgetmsgfp3();
+	testgetmsgxconntls();
+	testgetmsgxconnnonego();
+	testgetmsgmattacheduid();
+	testgetmsgmattachednouid();
+	testgetmsgmjoined();
+	testgetmsgmclosing();
+	testgetmsgmvchan();
+	testgetmsgspupdate();
+	testgetmsgmattacherr();
+	testgetmsgmjoinerr();
+	testgetmsgfpencr();
+	testgetmsgaflow();
+	testgetmsglicpksctlv1();
+	testgetmsgldone();
+	testgetmsglneedlicense();
+	testgetmsglhavechal();
+	testgetmsgspdeactivate();
+	testgetmsgspeinfo();
+	testgetmsgsporders();
+	testgetmsgspbitmap();
+	testgetmsgspcmap();
+	testgetmsgspwarp();
+	testgetmsgfporders();
+	testgetmsgfpbitmap();
+	testgetmsgfpcmap();
+	testgetmsgfpwarp();
+	testgetcapsgenbmp();
 	return 0;
 }
