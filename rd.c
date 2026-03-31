@@ -14,10 +14,6 @@ Rdp conn = {
 	.rwd = "",
 };
 
-char Eshort[]=	"short data";
-char Esmall[]=	"buffer too small";
-char Ebignum[]=	"number too big";
-
 void	sendmouse(Rdp* c, Mouse m);
 
 static void

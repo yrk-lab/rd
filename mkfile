@@ -16,6 +16,7 @@ OFILES=\
 	efs.$O\
 	egdi.$O\
 	ele.$O\
+	errs.$O\
 	kbd.$O\
 	rle.$O\
 	load.$O\
@@ -36,7 +37,7 @@ THREADOFILES=${OFILES:rd.$O=rd-thread.$O}
 CLEANFILES=$O.thread $O.test
 TESTHFILES=audio.c mppc.c rle.c
 TESTOFILES=\
-	efs_test.$O	efs.$O utf16.$O \
+	efs_test.$O	errs.$O efs.$O utf16.$O \
 	aud_test.$O	\
 	msg_test.$O	x224.$O mcs.$O ele.$O mpas.$O alloc.$O cap.$O egdi.$O \
 	mppc_test.$O	\

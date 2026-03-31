@@ -1,7 +1,5 @@
 #include "msg.c"
 
-char Ebignum[]=	"number too big";
-
 static int
 testputmsg1(void){
 	int n;

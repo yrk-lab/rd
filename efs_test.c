@@ -3,8 +3,6 @@
 #include "dat.h"
 #include "fns.h"
 
-char Eshort[]=	"short data";
-char Esmall[]=	"buffer too small";
 int sendvc(Rdp*, char*, uchar*, int) { return -1; }
 
 void testcann(void);
