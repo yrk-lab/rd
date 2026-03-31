@@ -485,6 +485,362 @@ testputmsg18(void){
 }
 
 
+static int
+testgetmsg1(void)
+{
+	/* Fast-path update: 2-byte length header */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "0006DEADBEEF";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg1: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg1: type: want %d, got %d", Aupdate, m.type);
+	if(m.ndata != 4)
+		sysfatal("testgetmsg1: ndata: want 4, got %d", m.ndata);
+	if(m.getshare != getshareF)
+		sysfatal("testgetmsg1: getshare: expected getshareF");
+	return 0;
+}
+
+static int
+testgetmsg2(void)
+{
+	/* Fast-path update: 3-byte length header */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "008006AABBCC";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg2: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg2: type: want %d, got %d", Aupdate, m.type);
+	if(m.ndata != 3)
+		sysfatal("testgetmsg2: ndata: want 3, got %d", m.ndata);
+	if(m.getshare != getshareF)
+		sysfatal("testgetmsg2: getshare: expected getshareF");
+	return 0;
+}
+
+static int
+testgetmsg3(void)
+{
+	/* X.224 connection confirm with TLS negotiation response */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001306D000000000000200080001000000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg3: unexpected error: %r");
+	if(m.type != Xconnected)
+		sysfatal("testgetmsg3: type: want %d, got %d", Xconnected, m.type);
+	if(m.negproto != ProtoTLS)
+		sysfatal("testgetmsg3: negproto: want %d (ProtoTLS), got %d", ProtoTLS, m.negproto);
+	return 0;
+}
+
+static int
+testgetmsg4(void)
+{
+	/* X.224 connection confirm with non-matching nego type: negproto stays 0 */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001306D000000000000100080000000000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg4: unexpected error: %r");
+	if(m.type != Xconnected)
+		sysfatal("testgetmsg4: type: want %d, got %d", Xconnected, m.type);
+	if(m.negproto != 0)
+		sysfatal("testgetmsg4: negproto: want 0, got %d", m.negproto);
+	return 0;
+}
+
+static int
+testgetmsg5(void)
+{
+	/* MCS Attach User Confirm with userId present */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "0300000B02F0802E00BEEF";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg5: unexpected error: %r");
+	if(m.type != Mattached)
+		sysfatal("testgetmsg5: type: want %d, got %d", Mattached, m.type);
+	if(m.mcsuid != 0xBEEF)
+		sysfatal("testgetmsg5: mcsuid: want 0xBEEF, got 0x%X", m.mcsuid);
+	return 0;
+}
+
+static int
+testgetmsg6(void)
+{
+	/* MCS Attach User Confirm without userId */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "0300000902F0802C00";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg6: unexpected error: %r");
+	if(m.type != Mattached)
+		sysfatal("testgetmsg6: type: want %d, got %d", Mattached, m.type);
+	if(m.mcsuid != 0)
+		sysfatal("testgetmsg6: mcsuid: want 0, got 0x%X", m.mcsuid);
+	return 0;
+}
+
+static int
+testgetmsg7(void)
+{
+	/* MCS Channel Join Confirm */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "0300000902F0803C00";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg7: unexpected error: %r");
+	if(m.type != Mjoined)
+		sysfatal("testgetmsg7: type: want %d, got %d", Mjoined, m.type);
+	return 0;
+}
+
+static int
+testgetmsg8(void)
+{
+	/* Disconnect Provider Ultimatum */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "0300000902F0802180";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg8: unexpected error: %r");
+	if(m.type != Mclosing)
+		sysfatal("testgetmsg8: type: want %d, got %d", Mclosing, m.type);
+	return 0;
+}
+
+static int
+testgetmsg9(void)
+{
+	/* MCS virtual channel data (non-global channel) */
+	int n, nb;
+	uchar buf[64];
+	Msg m = {0};
+	char *hex = "0300001E02F080681111222270800F070000001300000061626364656667";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg9: unexpected error: %r");
+	if(m.type != Mvchan)
+		sysfatal("testgetmsg9: type: want %d, got %d", Mvchan, m.type);
+	if(m.chanid != 0x2222)
+		sysfatal("testgetmsg9: chanid: want 0x2222, got 0x%X", m.chanid);
+	if(m.len != 7)
+		sysfatal("testgetmsg9: len: want 7, got %d", m.len);
+	if(m.flags != 0x13)
+		sysfatal("testgetmsg9: flags: want 0x13, got 0x%lX", m.flags);
+	if(m.ndata != 7)
+		sysfatal("testgetmsg9: ndata: want 7, got %d", m.ndata);
+	if(memcmp(m.data, "abcdefg", 7) != 0)
+		sysfatal("testgetmsg9: data mismatch");
+	return 0;
+}
+
+static int
+testgetmsg10(void)
+{
+	/* Slow-path update on global channel */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001302F08068111103EB70800400000000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg10: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg10: type: want %d, got %d", Aupdate, m.type);
+	if(m.ndata != 4)
+		sysfatal("testgetmsg10: ndata: want 4, got %d", m.ndata);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg10: getshare: expected getshareT");
+	return 0;
+}
+
+static int
+testgetmsg11(void)
+{
+	/* Error: MCS Attach User Confirm with non-zero error result */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "0300000902F0802C01";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n >= 0)
+		sysfatal("testgetmsg11: expected error, got %d", n);
+	return 0;
+}
+
+static int
+testgetmsg12(void)
+{
+	/* Error: MCS Channel Join Confirm with non-zero error result */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "0300000902F0803C01";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n >= 0)
+		sysfatal("testgetmsg12: expected error, got %d", n);
+	return 0;
+}
+
+static int
+testgetmsg13(void)
+{
+	/* Error: legacy encryption in fast-path PDU */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	char *hex = "8006DEADBEEF";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n >= 0)
+		sysfatal("testgetmsg13: expected error, got %d", n);
+	return 0;
+}
+
+static int
+testgetmsg14(void)
+{
+	/* Flow PDU on global channel (isflowpdu): GSHORT = 0x8000 → Aflow */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001302F08068111103EB70800400800000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg14: unexpected error: %r");
+	if(m.type != Aflow)
+		sysfatal("testgetmsg14: type: want %d (Aflow), got %d", Aflow, m.type);
+	return 0;
+}
+
+static int
+testgetmsg15(void)
+{
+	/*
+	 * Slow-path on global channel with Slicensepk flag but sctlver==1.
+	 * The condition "secflg&Slicensepk && sctlver != 1" is false, so
+	 * getlicensemsg is NOT called and the PDU falls through to Aupdate.
+	 */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001302F08068111103EB70800480001000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg15: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg15: type: want %d (Aupdate), got %d", Aupdate, m.type);
+	if(m.ndata != 4)
+		sysfatal("testgetmsg15: ndata: want 4, got %d", m.ndata);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg15: getshare: expected getshareT");
+	return 0;
+}
+
+static int
+testgetmsg16(void)
+{
+	/* License PDU with Notify (0xFF) type → Ldone */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001402F08068111103EB70800580000000FF";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg16: unexpected error: %r");
+	if(m.type != Ldone)
+		sysfatal("testgetmsg16: type: want %d (Ldone), got %d", Ldone, m.type);
+	return 0;
+}
+
+static int
+testgetmsg17(void)
+{
+	/* License PDU with SNeedLicense (0x01) type → Lneedlicense */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001402F08068111103EB7080058000000001";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg17: unexpected error: %r");
+	if(m.type != Lneedlicense)
+		sysfatal("testgetmsg17: type: want %d (Lneedlicense), got %d", Lneedlicense, m.type);
+	return 0;
+}
+
+static int
+testgetmsg18(void)
+{
+	/* License PDU with SHaveChal (0x02) type → Lhavechal */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001402F08068111103EB7080058000000002";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg18: unexpected error: %r");
+	if(m.type != Lhavechal)
+		sysfatal("testgetmsg18: type: want %d (Lhavechal), got %d", Lhavechal, m.type);
+	return 0;
+}
+
 int
 msgtests()
 {
@@ -508,5 +864,23 @@ msgtests()
 	testputmsg16();
 	testputmsg17();
 	testputmsg18();
+	testgetmsg1();
+	testgetmsg2();
+	testgetmsg3();
+	testgetmsg4();
+	testgetmsg5();
+	testgetmsg6();
+	testgetmsg7();
+	testgetmsg8();
+	testgetmsg9();
+	testgetmsg10();
+	testgetmsg11();
+	testgetmsg12();
+	testgetmsg13();
+	testgetmsg14();
+	testgetmsg15();
+	testgetmsg16();
+	testgetmsg17();
+	testgetmsg18();
 	return 0;
 }
