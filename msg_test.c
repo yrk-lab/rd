@@ -864,6 +864,374 @@ testgetmsg18(void)
 }
 
 static int
+testgetmsg19(void)
+{
+	/*
+	 * Slow-path Deactivate All PDU (PDUdeactivate=6) on global channel:
+	 * getmsg → Aupdate / getshareT → ShDeactivate
+	 */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	Share u = {0};
+	char *hex =
+		/* TPKT + X.224 Data */
+		"0300001502F080"
+		/* MCS SDI on GLOBALCHAN, data length=6 */
+		"68" "1111" "03EB" "70" "8006"
+		/* Share Control Header: totalLength=6, pduType=6 (PDUdeactivate), source */
+		"0600" "0600" "1111";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg19: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg19: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg19: getshare: expected getshareT");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg19: getshare: unexpected error: %r");
+	if(u.type != ShDeactivate)
+		sysfatal("testgetmsg19: share type: want ShDeactivate (%d), got %d", ShDeactivate, u.type);
+	return 0;
+}
+
+static int
+testgetmsg20(void)
+{
+	/*
+	 * Slow-path Set Error Info PDU (ADerrx=47) on global channel:
+	 * getmsg → Aupdate / getshareT → ShEinfo, err=0x1234
+	 */
+	int n, nb;
+	uchar buf[64];
+	Msg m = {0};
+	Share u = {0};
+	char *hex =
+		/* TPKT + X.224 Data */
+		"0300002502F080"
+		/* MCS SDI on GLOBALCHAN, data length=22 */
+		"68" "1111" "03EB" "70" "8016"
+		/* Share Control Header: totalLength=22, pduType=7 (PDUdata), source */
+		"1600" "0700" "1111"
+		/* Share Data Header: shareId, pad, streamId, uncomprLen=22, pduType2=47 (ADerrx), comprType, comprLen */
+		"EFBEADDE" "00" "01" "1600" "2F" "00" "0000"
+		/* Error code: 0x1234 (LE) */
+		"34120000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg20: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg20: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg20: getshare: expected getshareT");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg20: getshare: unexpected error: %r");
+	if(u.type != ShEinfo)
+		sysfatal("testgetmsg20: share type: want ShEinfo (%d), got %d", ShEinfo, u.type);
+	if(u.err != 0x1234)
+		sysfatal("testgetmsg20: err: want 0x1234, got 0x%X", u.err);
+	return 0;
+}
+
+static int
+testgetmsg21(void)
+{
+	/*
+	 * Slow-path Drawing Orders update (ADdraw/UpdOrders=0) on global channel:
+	 * getmsg → Aupdate / getshareT → ShUorders, nr=3
+	 */
+	int n, nb;
+	uchar buf[64];
+	Msg m = {0};
+	Share u = {0};
+	char *hex =
+		/* TPKT + X.224 Data */
+		"0300002902F080"
+		/* MCS SDI on GLOBALCHAN, data length=26 */
+		"68" "1111" "03EB" "70" "801A"
+		/* Share Control Header: totalLength=26, pduType=7 (PDUdata), source */
+		"1A00" "0700" "1111"
+		/* Share Data Header: shareId, pad, streamId, uncomprLen=26, pduType2=2 (ADdraw), comprType, comprLen */
+		"EFBEADDE" "00" "01" "1A00" "02" "00" "0000"
+		/* TS_GRAPHICS_UPDATE: updateType=0 (UpdOrders), pad, pad, numberOrders=3, pad */
+		"0000" "0000" "0300" "0000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg21: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg21: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg21: getshare: expected getshareT");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg21: getshare: unexpected error: %r");
+	if(u.type != ShUorders)
+		sysfatal("testgetmsg21: share type: want ShUorders (%d), got %d", ShUorders, u.type);
+	if(u.nr != 3)
+		sysfatal("testgetmsg21: nr: want 3, got %d", u.nr);
+	return 0;
+}
+
+static int
+testgetmsg22(void)
+{
+	/*
+	 * Slow-path Bitmap Update (ADdraw/UpdBitmap=1) on global channel:
+	 * getmsg → Aupdate / getshareT → ShUimg, nr=2
+	 */
+	int n, nb;
+	uchar buf[64];
+	Msg m = {0};
+	Share u = {0};
+	char *hex =
+		/* TPKT + X.224 Data */
+		"0300002502F080"
+		/* MCS SDI on GLOBALCHAN, data length=22 */
+		"68" "1111" "03EB" "70" "8016"
+		/* Share Control Header: totalLength=22, pduType=7 (PDUdata), source */
+		"1600" "0700" "1111"
+		/* Share Data Header: shareId, pad, streamId, uncomprLen=22, pduType2=2 (ADdraw), comprType, comprLen */
+		"EFBEADDE" "00" "01" "1600" "02" "00" "0000"
+		/* TS_GRAPHICS_UPDATE: updateType=1 (UpdBitmap), numberRectangles=2 */
+		"0100" "0200";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg22: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg22: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg22: getshare: expected getshareT");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg22: getshare: unexpected error: %r");
+	if(u.type != ShUimg)
+		sysfatal("testgetmsg22: share type: want ShUimg (%d), got %d", ShUimg, u.type);
+	if(u.nr != 2)
+		sysfatal("testgetmsg22: nr: want 2, got %d", u.nr);
+	return 0;
+}
+
+static int
+testgetmsg23(void)
+{
+	/*
+	 * Slow-path Color Table Cache Update (ADdraw/UpdCmap=2) on global channel:
+	 * getmsg → Aupdate / getshareT → ShUcmap
+	 */
+	int n, nb;
+	uchar buf[64];
+	Msg m = {0};
+	Share u = {0};
+	char *hex =
+		/* TPKT + X.224 Data */
+		"0300002302F080"
+		/* MCS SDI on GLOBALCHAN, data length=20 */
+		"68" "1111" "03EB" "70" "8014"
+		/* Share Control Header: totalLength=20, pduType=7 (PDUdata), source */
+		"1400" "0700" "1111"
+		/* Share Data Header: shareId, pad, streamId, uncomprLen=20, pduType2=2 (ADdraw), comprType, comprLen */
+		"EFBEADDE" "00" "01" "1400" "02" "00" "0000"
+		/* TS_GRAPHICS_UPDATE: updateType=2 (UpdCmap) */
+		"0200";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg23: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg23: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg23: getshare: expected getshareT");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg23: getshare: unexpected error: %r");
+	if(u.type != ShUcmap)
+		sysfatal("testgetmsg23: share type: want ShUcmap (%d), got %d", ShUcmap, u.type);
+	return 0;
+}
+
+static int
+testgetmsg24(void)
+{
+	/*
+	 * Slow-path Pointer Position Update (ADcursor/PDUcursorwarp=3) on global channel:
+	 * getmsg → Aupdate / getshareT → ShUwarp, x=100, y=200
+	 */
+	int n, nb;
+	uchar buf[64];
+	Msg m = {0};
+	Share u = {0};
+	char *hex =
+		/* TPKT + X.224 Data */
+		"0300002902F080"
+		/* MCS SDI on GLOBALCHAN, data length=26 */
+		"68" "1111" "03EB" "70" "801A"
+		/* Share Control Header: totalLength=26, pduType=7 (PDUdata), source */
+		"1A00" "0700" "1111"
+		/* Share Data Header: shareId, pad, streamId, uncomprLen=26, pduType2=27 (ADcursor), comprType, comprLen */
+		"EFBEADDE" "00" "01" "1A00" "1B" "00" "0000"
+		/* TS_POINTER_PDU: messageType=3 (PDUcursorwarp), pad, pad, x=100, y=200 */
+		"0300" "0000" "6400" "C800";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg24: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg24: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareT)
+		sysfatal("testgetmsg24: getshare: expected getshareT");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg24: getshare: unexpected error: %r");
+	if(u.type != ShUwarp)
+		sysfatal("testgetmsg24: share type: want ShUwarp (%d), got %d", ShUwarp, u.type);
+	if(u.x != 100)
+		sysfatal("testgetmsg24: x: want 100, got %d", u.x);
+	if(u.y != 200)
+		sysfatal("testgetmsg24: y: want 200, got %d", u.y);
+	return 0;
+}
+
+static int
+testgetmsg25(void)
+{
+	/*
+	 * Fast-path Drawing Orders update (FUpdOrders=0):
+	 * getmsg → Aupdate / getshareF → ShUorders, nr=5
+	 */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	Share u = {0};
+	/* action=0, total=7; updateHeader=0 (FUpdOrders), size=2, numberOrders=5 */
+	char *hex = "0007" "00" "0200" "0500";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg25: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg25: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareF)
+		sysfatal("testgetmsg25: getshare: expected getshareF");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg25: getshare: unexpected error: %r");
+	if(u.type != ShUorders)
+		sysfatal("testgetmsg25: share type: want ShUorders (%d), got %d", ShUorders, u.type);
+	if(u.nr != 5)
+		sysfatal("testgetmsg25: nr: want 5, got %d", u.nr);
+	return 0;
+}
+
+static int
+testgetmsg26(void)
+{
+	/*
+	 * Fast-path Bitmap Update (FUpdBitmap=1):
+	 * getmsg → Aupdate / getshareF → ShUimg, nr=3
+	 */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	Share u = {0};
+	/* action=0, total=9; updateHeader=1 (FUpdBitmap), size=4, pad, numberRectangles=3 */
+	char *hex = "0009" "01" "0400" "0000" "0300";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg26: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg26: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareF)
+		sysfatal("testgetmsg26: getshare: expected getshareF");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg26: getshare: unexpected error: %r");
+	if(u.type != ShUimg)
+		sysfatal("testgetmsg26: share type: want ShUimg (%d), got %d", ShUimg, u.type);
+	if(u.nr != 3)
+		sysfatal("testgetmsg26: nr: want 3, got %d", u.nr);
+	return 0;
+}
+
+static int
+testgetmsg27(void)
+{
+	/*
+	 * Fast-path Color Table Cache Update (FUpdCmap=2):
+	 * getmsg → Aupdate / getshareF → ShUcmap
+	 */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	Share u = {0};
+	/* action=0, total=5; updateHeader=2 (FUpdCmap), size=0 */
+	char *hex = "0005" "02" "0000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg27: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg27: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareF)
+		sysfatal("testgetmsg27: getshare: expected getshareF");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg27: getshare: unexpected error: %r");
+	if(u.type != ShUcmap)
+		sysfatal("testgetmsg27: share type: want ShUcmap (%d), got %d", ShUcmap, u.type);
+	return 0;
+}
+
+static int
+testgetmsg28(void)
+{
+	/*
+	 * Fast-path Pointer Position Update (FUpdWarp=8):
+	 * getmsg → Aupdate / getshareF → ShUwarp, x=100, y=200
+	 */
+	int n, nb;
+	uchar buf[16];
+	Msg m = {0};
+	Share u = {0};
+	/* action=0, total=9; updateHeader=8 (FUpdWarp), size=4, x=100, y=200 */
+	char *hex = "0009" "08" "0400" "6400" "C800";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsg28: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetmsg28: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareF)
+		sysfatal("testgetmsg28: getshare: expected getshareF");
+	n = m.getshare(&u, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetmsg28: getshare: unexpected error: %r");
+	if(u.type != ShUwarp)
+		sysfatal("testgetmsg28: share type: want ShUwarp (%d), got %d", ShUwarp, u.type);
+	if(u.x != 100)
+		sysfatal("testgetmsg28: x: want 100, got %d", u.x);
+	if(u.y != 200)
+		sysfatal("testgetmsg28: y: want 200, got %d", u.y);
+	return 0;
+}
+
+static int
 testgetcaps1(void)
 {
 	/*
@@ -972,6 +1340,16 @@ msgtests(void)
 	testgetmsg16();
 	testgetmsg17();
 	testgetmsg18();
+	testgetmsg19();
+	testgetmsg20();
+	testgetmsg21();
+	testgetmsg22();
+	testgetmsg23();
+	testgetmsg24();
+	testgetmsg25();
+	testgetmsg26();
+	testgetmsg27();
+	testgetmsg28();
 	testgetcaps1();
 	return 0;
 }
