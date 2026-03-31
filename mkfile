@@ -49,6 +49,7 @@ $TARG: mkfile
 
 default:V: $O.thread
 all:V: $O.thread
+test:V: runtest
 runtest:V: $O.test
 	$O.test
 
