@@ -428,6 +428,7 @@ DBG	fprint(2, "getimgcache2...");
 	case 3:	g = (g<<8) | *p++;
 	case 2:	g = (g<<8) | *p++;
 	case 1:	g = (g<<8) | *p++;
+	case 0:	break;
 	}
 	size = g;
 
