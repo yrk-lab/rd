@@ -187,6 +187,483 @@ testunrle3(void)
 	return 0;
 }
 
+static int
+testunrle4(void)
+{
+	/*
+	 * Lit opcode: code=8, bits=Bits5=31, raw_len=3 → len=3 pixels.
+	 * hdr=0x83: copies 3 literal bytes verbatim into output.
+	 */
+	uchar src[] = {0x83, 0xAA, 0xBB, 0xCC};
+	uchar dst[3];
+	uchar *end;
+
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle4: unexpected error: %r");
+	if(end - dst != 3)
+		sysfatal("testunrle4: length: want 3, got %d", (int)(end - dst));
+	if(dst[0] != 0xAA || dst[1] != 0xBB || dst[2] != 0xCC)
+		sysfatal("testunrle4: pixels: want AA BB CC, got %02x %02x %02x",
+			dst[0], dst[1], dst[2]);
+	return 0;
+}
+
+static int
+testunrle5(void)
+{
+	/*
+	 * Fg opcode on the first scan line (no previous line):
+	 * fills with the initial pen (DWhite=0xFF for pixelsize=1), no XOR.
+	 * hdr=0x24: code=2 (Fg), raw_len=4 → len=4 pixels.
+	 */
+	uchar src[] = {0x24};
+	uchar dst[4];
+	uchar *end;
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle5: unexpected error: %r");
+	if(end - dst != 4)
+		sysfatal("testunrle5: length: want 4, got %d", (int)(end - dst));
+	for(i = 0; i < 4; i++)
+		if(dst[i] != 0xFF)
+			sysfatal("testunrle5: dst[%d]: want 0xFF, got 0x%02x", i, dst[i]);
+	return 0;
+}
+
+static int
+testunrle6(void)
+{
+	/*
+	 * FgS opcode: code=12, bits=Bits4=15, raw_len=1 → len=1 pixel.
+	 * hdr=0xC1: reads 1-byte pen (0x42), then fills 1 pixel with it.
+	 * First scan line: no XOR with previous row.
+	 */
+	uchar src[] = {0xC1, 0x42};
+	uchar dst[1];
+	uchar *end;
+
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle6: unexpected error: %r");
+	if(end - dst != 1)
+		sysfatal("testunrle6: length: want 1, got %d", (int)(end - dst));
+	if(dst[0] != 0x42)
+		sysfatal("testunrle6: pixel: want 0x42, got 0x%02x", dst[0]);
+	return 0;
+}
+
+static int
+testunrle7(void)
+{
+	/*
+	 * Fill opcode: code=6, bits=Bits5=31, raw_len=3 → len=3 pixels.
+	 * hdr=0x63: reads 1-byte fill colour (0x55), fills 3 pixels with it.
+	 */
+	uchar src[] = {0x63, 0x55};
+	uchar dst[3];
+	uchar *end;
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle7: unexpected error: %r");
+	if(end - dst != 3)
+		sysfatal("testunrle7: length: want 3, got %d", (int)(end - dst));
+	for(i = 0; i < 3; i++)
+		if(dst[i] != 0x55)
+			sysfatal("testunrle7: dst[%d]: want 0x55, got 0x%02x", i, dst[i]);
+	return 0;
+}
+
+static int
+testunrle8(void)
+{
+	/*
+	 * Dith opcode: code=14, bits=Bits4=15, raw_len=1 → len=1 (×pixelsize).
+	 * hdr=0xE1: inside Dith, len doubles to 2; reads two 1-byte colours
+	 * {0xAA, 0xBB} and fills output with the alternating pattern.
+	 */
+	uchar src[] = {0xE1, 0xAA, 0xBB};
+	uchar dst[2];
+	uchar *end;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle8: unexpected error: %r");
+	if(end - dst != 2)
+		sysfatal("testunrle8: length: want 2, got %d", (int)(end - dst));
+	if(dst[0] != 0xAA || dst[1] != 0xBB)
+		sysfatal("testunrle8: pixels: want AA BB, got %02x %02x", dst[0], dst[1]);
+	return 0;
+}
+
+static int
+testunrle9(void)
+{
+	/*
+	 * Wpix extended opcode (0xFD): sets the current pixel to DWhite (0xFF).
+	 */
+	uchar src[] = {0xFD};
+	uchar dst[1];
+	uchar *end;
+
+	dst[0] = 0;
+	end = unrle(dst, sizeof dst, src, sizeof src, 2, 1);
+	if(end == nil)
+		sysfatal("testunrle9: unexpected error: %r");
+	if(end - dst != 1)
+		sysfatal("testunrle9: length: want 1, got %d", (int)(end - dst));
+	if(dst[0] != 0xFF)
+		sysfatal("testunrle9: pixel: want 0xFF, got 0x%02x", dst[0]);
+	return 0;
+}
+
+static int
+testunrle10(void)
+{
+	/*
+	 * Mix opcode with non-trivial mask (0xAA = 10101010):
+	 * hdr=0x41: code=4 (Mix), raw_len=1 → len=8 pixels.
+	 * Even-indexed pixels (bit=0) are zero-filled; odd-indexed (bit=1)
+	 * get the initial pen (DWhite=0xFF). No previous scan line, no XOR.
+	 */
+	uchar src[] = {0x41, 0xAA};
+	uchar dst[8];
+	uchar *end;
+	uchar want[] = {0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF};
+	int i;
+
+	memset(dst, 0x55, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle10: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle10: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 8; i++)
+		if(dst[i] != want[i])
+			sysfatal("testunrle10: dst[%d]: want 0x%02x, got 0x%02x",
+				i, want[i], dst[i]);
+	return 0;
+}
+
+static int
+testunrle11(void)
+{
+	/*
+	 * MixS opcode: code=13, bits=Bits4=15, raw_len=1 → len=8 pixels.
+	 * hdr=0xD1: reads 1-byte pen (0x42), mask=0xFF (all bits set).
+	 * First scan line, all bits 1: every pixel written with new pen, no XOR.
+	 */
+	uchar src[] = {0xD1, 0x42, 0xFF};
+	uchar dst[8];
+	uchar *end;
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle11: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle11: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 8; i++)
+		if(dst[i] != 0x42)
+			sysfatal("testunrle11: dst[%d]: want 0x42, got 0x%02x", i, dst[i]);
+	return 0;
+}
+
+static int
+testunrle12(void)
+{
+	/*
+	 * Mix3 extended opcode (0xF9): fixed bitmask sreg=3 (00000011).
+	 * Produces 8 pixels: first two get pen (DWhite=0xFF), rest are zero.
+	 * First scan line: no XOR with previous row.
+	 */
+	uchar src[] = {0xF9};
+	uchar dst[8];
+	uchar *end;
+	uchar want[] = {0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	int i;
+
+	memset(dst, 0x55, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle12: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle12: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 8; i++)
+		if(dst[i] != want[i])
+			sysfatal("testunrle12: dst[%d]: want 0x%02x, got 0x%02x",
+				i, want[i], dst[i]);
+	return 0;
+}
+
+static int
+testunrle13(void)
+{
+	/*
+	 * Mix5 extended opcode (0xFA): fixed bitmask sreg=5 (00000101).
+	 * Produces 8 pixels: pixels 0 and 2 get pen (DWhite=0xFF), rest zero.
+	 * First scan line: no XOR with previous row.
+	 */
+	uchar src[] = {0xFA};
+	uchar dst[8];
+	uchar *end;
+	uchar want[] = {0xFF, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00};
+	int i;
+
+	memset(dst, 0x55, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle13: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle13: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 8; i++)
+		if(dst[i] != want[i])
+			sysfatal("testunrle13: dst[%d]: want 0x%02x, got 0x%02x",
+				i, want[i], dst[i]);
+	return 0;
+}
+
+static int
+testunrle14(void)
+{
+	/*
+	 * Bg on second scan line: copies pixels from the previous scan line.
+	 * First opcode: Lit 4 pixels {0x11,0x22,0x33,0x44}.
+	 * Second opcode: hdr=0x04 (Bg, raw_len=4) — on second scan line
+	 * wp-bpl points into the already-written first scan line, so
+	 * memmove copies it verbatim (no XOR for Bg).
+	 */
+	uchar src[] = {0x84, 0x11, 0x22, 0x33, 0x44, 0x04};
+	uchar dst[8];
+	uchar *end;
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
+	if(end == nil)
+		sysfatal("testunrle14: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle14: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 4; i++)
+		if(dst[4+i] != dst[i])
+			sysfatal("testunrle14: dst[%d]: want 0x%02x, got 0x%02x",
+				4+i, dst[i], dst[4+i]);
+	return 0;
+}
+
+static int
+testunrle15(void)
+{
+	/*
+	 * Fg on second scan line: fills with pen (DWhite) then XORs with
+	 * the previous scan line.
+	 * First opcode: Lit 4 pixels {0x11,0x22,0x33,0x44}.
+	 * Second opcode: hdr=0x24 (Fg, raw_len=4) — pen=0xFF XOR prev.
+	 * Expected: {0xFF^0x11, 0xFF^0x22, 0xFF^0x33, 0xFF^0x44}
+	 *         = {0xEE, 0xDD, 0xCC, 0xBB}.
+	 */
+	uchar src[] = {0x84, 0x11, 0x22, 0x33, 0x44, 0x24};
+	uchar dst[8];
+	uchar *end;
+	uchar want[] = {0xEE, 0xDD, 0xCC, 0xBB};
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
+	if(end == nil)
+		sysfatal("testunrle15: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle15: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 4; i++)
+		if(dst[4+i] != want[i])
+			sysfatal("testunrle15: dst[%d]: want 0x%02x, got 0x%02x",
+				4+i, want[i], dst[4+i]);
+	return 0;
+}
+
+static int
+testunrle16(void)
+{
+	/*
+	 * FgS on second scan line: sets a new pen (0xF0) then XORs with
+	 * the previous scan line.
+	 * First opcode: Lit 4 pixels {0x11,0x22,0x33,0x44}.
+	 * Second opcode: hdr=0xC4 (FgS, raw_len=4), pen byte=0xF0.
+	 * Expected: {0xF0^0x11, 0xF0^0x22, 0xF0^0x33, 0xF0^0x44}
+	 *         = {0xE1, 0xD2, 0xC3, 0xB4}.
+	 */
+	uchar src[] = {0x84, 0x11, 0x22, 0x33, 0x44, 0xC4, 0xF0};
+	uchar dst[8];
+	uchar *end;
+	uchar want[] = {0xE1, 0xD2, 0xC3, 0xB4};
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
+	if(end == nil)
+		sysfatal("testunrle16: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle16: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 4; i++)
+		if(dst[4+i] != want[i])
+			sysfatal("testunrle16: dst[%d]: want 0x%02x, got 0x%02x",
+				4+i, want[i], dst[4+i]);
+	return 0;
+}
+
+static int
+testunrle17(void)
+{
+	/*
+	 * Consecutive Bg runs (wasbg flag): after a Bg run sets wasbg=1, the
+	 * next Bg run on the following scan line starts its first pixel using
+	 * pen XOR previous-line-pixel, then copies the rest of the prev line.
+	 * Lit 4: {0x11,0x22,0x33,0x44}; Bg 4 (copies prev → same); Bg 4.
+	 * Third Bg (wasbg=1): pixel[8] = pen(0xFF) XOR dst[4](0x11) = 0xEE,
+	 * pixels[9..11] copied from dst[5..7] = {0x22,0x33,0x44}.
+	 */
+	uchar src[] = {0x84, 0x11, 0x22, 0x33, 0x44, 0x04, 0x04};
+	uchar dst[12];
+	uchar *end;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
+	if(end == nil)
+		sysfatal("testunrle17: unexpected error: %r");
+	if(end - dst != 12)
+		sysfatal("testunrle17: length: want 12, got %d", (int)(end - dst));
+	if(dst[8] != 0xEE)
+		sysfatal("testunrle17: dst[8]: want 0xEE, got 0x%02x", dst[8]);
+	if(dst[9] != 0x22 || dst[10] != 0x33 || dst[11] != 0x44)
+		sysfatal("testunrle17: dst[9..11]: want 22 33 44, got %02x %02x %02x",
+			dst[9], dst[10], dst[11]);
+	return 0;
+}
+
+static int
+testunrle18(void)
+{
+	/*
+	 * Overrun detection: output buffer is smaller than the decoded data.
+	 * Lit 4 bytes into a 3-byte buffer must return nil with an error.
+	 */
+	uchar src[] = {0x84, 0xAA, 0xBB, 0xCC, 0xDD};
+	uchar dst[3];
+	uchar *end;
+
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end != nil)
+		sysfatal("testunrle18: expected nil return on overrun, got non-nil");
+	return 0;
+}
+
+static int
+testunrle19(void)
+{
+	/*
+	 * Extended Bg opcode (0xF0): len taken from following 2-byte little-
+	 * endian field. hdr=0xF0, len=4; first scan line → zero-fills 4 bytes.
+	 */
+	uchar src[] = {0xF0, 0x04, 0x00};
+	uchar dst[4];
+	uchar *end;
+	int i;
+
+	memset(dst, 0xFF, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle19: unexpected error: %r");
+	if(end - dst != 4)
+		sysfatal("testunrle19: length: want 4, got %d", (int)(end - dst));
+	for(i = 0; i < 4; i++)
+		if(dst[i] != 0)
+			sysfatal("testunrle19: dst[%d]: want 0, got 0x%02x", i, dst[i]);
+	return 0;
+}
+
+static int
+testunrle20(void)
+{
+	/*
+	 * Extended Fg opcode (0xF1): len from 2-byte field.
+	 * hdr=0xF1, len=3; pen=DWhite (0xFF), first scan line → no XOR.
+	 * Output: 3 bytes of 0xFF.
+	 */
+	uchar src[] = {0xF1, 0x03, 0x00};
+	uchar dst[3];
+	uchar *end;
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle20: unexpected error: %r");
+	if(end - dst != 3)
+		sysfatal("testunrle20: length: want 3, got %d", (int)(end - dst));
+	for(i = 0; i < 3; i++)
+		if(dst[i] != 0xFF)
+			sysfatal("testunrle20: dst[%d]: want 0xFF, got 0x%02x", i, dst[i]);
+	return 0;
+}
+
+static int
+testunrle21(void)
+{
+	/*
+	 * Extended Lit opcode (0xF4): len from 2-byte field.
+	 * hdr=0xF4, len=3; copies next 3 bytes verbatim.
+	 */
+	uchar src[] = {0xF4, 0x03, 0x00, 0xAA, 0xBB, 0xCC};
+	uchar dst[3];
+	uchar *end;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
+	if(end == nil)
+		sysfatal("testunrle21: unexpected error: %r");
+	if(end - dst != 3)
+		sysfatal("testunrle21: length: want 3, got %d", (int)(end - dst));
+	if(dst[0] != 0xAA || dst[1] != 0xBB || dst[2] != 0xCC)
+		sysfatal("testunrle21: pixels: want AA BB CC, got %02x %02x %02x",
+			dst[0], dst[1], dst[2]);
+	return 0;
+}
+
+static int
+testunrle22(void)
+{
+	/*
+	 * Extended Fill opcode (0xF3) with pixelsize=4 (32-bpp):
+	 * hdr=0xF3, len=2 pixels → 8 bytes; fill colour = {0x12,0x34,0x56,0x78}.
+	 * Output: two copies of the 4-byte pixel.
+	 */
+	uchar src[] = {0xF3, 0x02, 0x00, 0x12, 0x34, 0x56, 0x78};
+	uchar dst[8];
+	uchar *end;
+	uchar want[] = {0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78};
+	int i;
+
+	memset(dst, 0, sizeof dst);
+	end = unrle(dst, sizeof dst, src, sizeof src, 8, 4);
+	if(end == nil)
+		sysfatal("testunrle22: unexpected error: %r");
+	if(end - dst != 8)
+		sysfatal("testunrle22: length: want 8, got %d", (int)(end - dst));
+	for(i = 0; i < 8; i++)
+		if(dst[i] != want[i])
+			sysfatal("testunrle22: dst[%d]: want 0x%02x, got 0x%02x",
+				i, want[i], dst[i]);
+	return 0;
+}
+
 int
 rletests(void)
 {
@@ -201,5 +678,24 @@ rletests(void)
 	testunrle1();
 	testunrle2();
 	testunrle3();
+	testunrle4();
+	testunrle5();
+	testunrle6();
+	testunrle7();
+	testunrle8();
+	testunrle9();
+	testunrle10();
+	testunrle11();
+	testunrle12();
+	testunrle13();
+	testunrle14();
+	testunrle15();
+	testunrle16();
+	testunrle17();
+	testunrle18();
+	testunrle19();
+	testunrle20();
+	testunrle21();
+	testunrle22();
 	return 0;
 }
