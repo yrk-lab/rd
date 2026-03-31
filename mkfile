@@ -49,7 +49,7 @@ $TARG: mkfile
 
 default:V: $O.thread
 all:V: $O.thread
-test:V: $O.test
+runtest:V: $O.test
 	$O.test
 
 $O.thread:	$THREADOFILES $LIB
