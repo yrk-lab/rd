@@ -19,6 +19,7 @@ testputmsg1(void){
 	want = "0300002722E00000000000436F6F6B69653A206D737473686173683D780D0A0100080001000000";
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg1: want %s, got %s", want, s);
+	free(s);
 	return 0;
 
 }
@@ -38,6 +39,7 @@ testputmsg2(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "03000007028080") != 0)
 		sysfatal("testputmsg2: want %s, got %s", want, s);
+	free(s);
 	return 0;
 
 }
@@ -57,6 +59,7 @@ testputmsg3(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "0300000802F08028") != 0)
 		sysfatal("testputmsg3: want %s, got %s", want, s);
+	free(s);
 	return 0;
 
 }
@@ -78,6 +81,7 @@ testputmsg4(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "0300000C02F08038DEADBEEF") != 0)
 		sysfatal("testputmsg4: want %s, got %s", want, s);
+	free(s);
 	return 0;
 
 }
@@ -97,6 +101,7 @@ testputmsg5(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want = "0300000C02F0800400010001") != 0)
 		sysfatal("testputmsg5: want %s, got %s", want, s);
+	free(s);
 	return 0;
 
 }
@@ -128,26 +133,14 @@ testputmsg6(void){
 	if(n < 0)
 		sysfatal("testputmsg6: unexpected error: %r\n");
 
-	// Edit s/................/&" "/g
-	want =
-		"030001A602F0807F6582019A04010104" "01010101FF3020020200220202000202"
-		"02000002020001020200000202000102" "02FFFF02020002302002020001020200"
-		"01020200010202000102020000020200" "01020204200202000230200202FFFF02"
-		"02FFFF0202FFFF020200010202000002" "0200010202FFFF020200020482012700"
-		"0500147C0001811E000800100001C000" "44756361811001C0D800040008000004"
-		"000301CA03AA09040000280A00005400" "530043004C00490045004E0054002D00"
-		"54004500530054000000F90700000400" "0000000000000C000000080000000600"
-		"010044AC000044AC0000010008000000" "070002002256000044AC000002000800"
-		"00000700010044AC000044AC00000100" "0800000002000200225601CA01000000"
-		"000018000F0003000700000100000002" "00FF00000000C0004000F0000000CC01"
-		"30FF880118FF1100020022560000B956" "0000000404000200F9030200010044AC"
-		"0000A3560000000407000100000002C0" "0C00000000000000000004C00C000900"
-		"00000000000003C0200002000000434C" "49505244520080000000524450445200"
-		"000080000000";
+	want = "030001A602F0807F6582019A0401010401010101FF30200202002202020002020200000202000102020000020200010202FFFF020200023020020200010202000102020001020200010202000002020001020204200202000230200202FFFF0202FFFF0202FFFF0202000102020000020200010202FFFF0202000204820127000500147C0001811E000800100001C00044756361811001C0D800040008000004000301CA03AA09040000280A00005400530043004C00490045004E0054002D00540045005300540000000000000004000000000000000C0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001CA01000000000018000F0003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007000100000002C00C00000000000000000004C00C00090000000000000003C0200002000000434C49505244520080000000524450445200000080000000";
 
 	s = smprint("%.*H", n, buf);
-	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg6: want '%s', got '%s'", want, s);
+	if(strcmp(s, want) != 0){
+		fprint(2, "testputmsg6: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsg6");
+	}
+	free(s);
 	return 0;
 
 }
@@ -172,19 +165,14 @@ testputmsg7(void){
 	if(n < 0)
 		sysfatal("testputmsg7: unexpected error: %r\n");
 
-	// Edit s/................................................................/&"\n		"/g
-	want = 
-		"AwABMwLwgGS+7wPrcIEkQAAAAAAAAAC7AwAADgAQAAwAGAAGAFQARQBTAFQARABP"
-		"AE0AAAB0AGUAcwB0AHUAcwBlAHIAAABzAGUAYwByAGUAdAAAAGUAeABwAGwAbwBy"
-		"AGUAcgAuAGUAeABlAAAAQwA6AFwAAAACAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAA"
-		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-		"AAAAAAAAAAAAAAAAAAAAzgAAAA==";
+	want = "0300013302F08064BEEF03EB7081244000000000000000BB0300000E0010000C0018000600540045005300540044004F004D00000074006500730074007500730065007200000073006500630072006500740000006500780070006C006F007200650072002E00650078006500000043003A005C00000002000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000CE000000";
 
-	s = smprint("%.*[", n, buf);
-	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg7: want '%s', got '%s'", want, s);
+	s = smprint("%.*H", n, buf);
+	if(strcmp(s, want) != 0){
+		fprint(2, "testputmsg7: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsg7");
+	}
+	free(s);
 	return 0;
 
 }
@@ -207,21 +195,14 @@ testputmsg8(void){
 	if(n < 0)
 		sysfatal("testputmsg8: unexpected error: %r\n");
 
-	// Edit s/................................................................/&"\n		"/g
-	want =
-		"AwABhALwgGS7uwPrcIF1dQETALu7zMwAAKqqBwBeAVBsYW4gOQAIAAAAAQAYAAAA"
-		"AAAAAgIAAAAFBAAAAAAAAAAAAgAeAAAAAQABAAEAAARYAgAAAQABAAAAAQAAAAIA"
-		"AwBYAAECAgQgAgIAAjAgAgL//wIAAAAAAQAUAAAAAQAAAGoAAAABAQAAAAAAAAAA"
-		"AAAAAAAAAAAAAAAAAAAAAAAAAAChBgAAAAAAAACEAwAAAAAA5AAEABMAKAAAAAAD"
-		"eAAAAHgAAABQAQAAAAAAAAAAAABUAEUAUwBUAAAA+QcIAAgAAAAUAA0AWAARAAAA"
-		"CQQAAAQAAAAAAAAADAAAAAgAAAAHAAIAIlYAAESsAAACAAgAAAAHAAEARKwAAESs"
-		"AAABAAgAAAACAAIAIlYBygEAAAAAABgADwADAAcAAAEMAAgAAAAAABQACAAAAAAA"
-		"EAA0AP4ABAD+AAQA/gAIAP4ACAD+ABAA/gAgAP4AQAD+AIAA/gAAAUAAAAgAAQAB"
-		"AAAAAA==";
+	want = "0300018402F08064BBBB03EB70817575011300BBBBCCCC0000AAAA07005E01506C616E2039000800000001001800000000000002000200000504000000000000000002001E000000010001000100000458020000010001000000010000000002030058000000000000000000000000000000000000000000010014000000010000006A000000010100000000000000000000000000000000000000000000000000000000A1060000000000000084030000000000E40004001300280000000003780000007800000050010000000000000000000000000000000000000000000008000800000014000D005800110000000904000004000000000000000C000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000C00080000000000140008000000000010003400FE000400FE000400FE000800FE000800FE001000FE002000FE004000FE008000FE000001400000080001000100000000";
 
-	s = smprint("%.*[", n, buf);
-	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg8: want '%s', got '%s'", want, s);
+	s = smprint("%.*H", n, buf);
+	if(strcmp(s, want) != 0){
+		fprint(2, "testputmsg8: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsg8");
+	}
+	free(s);
 	return 0;
 
 }
@@ -255,6 +236,7 @@ testputmsg9(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg9: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 }
 
@@ -279,6 +261,7 @@ testputmsg10(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg10: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 }
 
@@ -298,6 +281,7 @@ testputmsg11(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg11: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 }
 
@@ -317,6 +301,7 @@ testputmsg12(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg12: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 }
 
@@ -336,6 +321,7 @@ testputmsg13(void){
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg13: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 }
 
@@ -359,14 +345,12 @@ testputmsg14(void){
 	if(n < 0)
 		sysfatal("testputmsg14: unexpected error: %r\n");
 
-	// Edit s/................/&" "/g
-	want =
-		"0300003102F08064" "111103EB70802222" "0017001111222200" "00000122001C0000"
-		"0001000000000000" "0000000000000000" "00";
+	want = "0300003102F08064111103EB70802222001700111122220000000122001C00000001000000000000000000000000000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg14: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 
 }
@@ -394,14 +378,12 @@ testputmsg15(void){
 	if(n < 0)
 		sysfatal("testputmsg15: unexpected error: %r\n");
 
-	// Edit s/................/&" "/g
-	want =
-		"0300003102F08064" "111103EB70802222" "0017001111222200" "00000122001C0000"
-		"0001000000333300" "00040044002A0000" "00";
+	want = "0300003102F08064111103EB70802222001700111122220000000122001C0000000100000033330000040044002A000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg15: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 
 }
@@ -411,23 +393,69 @@ testputmsg16(void){
 	int n;
 	char *s, *want;
 	uchar buf[2*1024];
+
 	Msg m = {.type = Lreq, .sysname = "TESTSYS", .user = "testuser", .originid=0x1111};
 
 	n = putmsg(buf, sizeof buf, &m);
 	if(n < 0)
 		sysfatal("testputmsg16: unexpected error: %r\n");
 
-	// Edit s/................/&" "/g
 	want = 
-		"0300008C02F08064" "111103EB70807D80" "0000001303790001" "0000000000000000"
-		"0000000000000000" "0000000000000000" "0000000000000000" "0000000000000002"
-		"0030000000000000" "0000000000000000" "0000000000000000" "0000000000000000"
-		"0000000000000000" "0000000000000000" "0000000F00090074" "6573747573657200"
-		"1000080054455354" "53595300";
+		// TPKT header
+		"03"			// version[1] = 3
+		"00"			// unused[1] = 0
+		"008C"		// len[2]
+
+		// TPDU header
+		"02"			// hdlen[1] = 2
+		"F0"			// type[1] = Data
+		"80"			// seqno[1] = (0 in Class 0) + EOT mark (1<<7)
+
+		// MCS Send Data Request: header
+		"64"			// type = Msdr(25) <<2
+		"1111"		// mcsuid = m.originid (0x1111)
+		"03EB"		// chanid = GLOBALCHAN(1003)
+		"70"			// always 0x70
+		"807D"		// 0x8000 | ndata(125)
+
+		// MCS Send Data Request: data
+		"80000000"	// sechdr[4]: secflags[4] = Slicensepk(0x80)
+		"13"			// type[1] = CNeedLicense
+		"03"			// flags[1] = PreambleV3
+		"7900"		// size[2]
+		"01000000"	// kexalg[4] = KeyExRSA
+		"00000000"	// platfid[4] = 0
+		"0000000000000000" "0000000000000000"
+		"0000000000000000" "0000000000000000"
+					// crandom[32] = 32 {0}
+
+		// premaster[blob]
+		"0200"		// type[2] = Brandom(2)
+		"3000"		// len[2] = 48
+		"0000000000000000" "0000000000000000"
+		"0000000000000000" "0000000000000000"
+		"0000000000000000" "0000000000000000"
+					// data[len] = 48 {0}
+
+		// cuser[blob]
+		"0F00"		// type[2] = Bcuser(15)
+		"0900"		// len[2] = 9
+		"746573747573657200"
+					// data[len] = "testuser\0"
+
+		// chost[blob]
+		"1000"		// type[2] = Bchost(16)
+		"0800"		// len[2] = 8
+		"5445535453595300"
+					// data[len] = "TESTSYS\0"
+		;
 
 	s = smprint("%.*H", n, buf);
-	if(strcmp(s, want) != 0)
-		sysfatal("testputmsg16: want '%s', got '%s'", want, s);
+	if(strcmp(s, want) != 0){
+		fprint(2, "testputmsg16: want '%s', got '%s'\n", want, s);
+		sysfatal("testputmsg16");
+	}
+	free(s);
 	return 0;
 }
 
@@ -442,15 +470,13 @@ testputmsg17(void){
 	if(n < 0)
 		sysfatal("testputmsg17: unexpected error: %r\n");
 
-	// Edit s/................/&" "/g
 	want =
-		"0300002302F08064" "111103EB70801480"
-		"000000FF03100002" "0000000100000004"
-		"000000";
+		"0300002302F08064111103EB70801480000000FF031000020000000100000004000000";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg17: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 }
 
@@ -472,15 +498,13 @@ testputmsg18(void){
 	if(n < 0)
 		sysfatal("testputmsg18: unexpected error: %r\n");
 
-	// Edit s/................/&" "/g
 	want =
-		"0300002D02F08064" "222203EB70801E1E"
-		"0017002222333300" "0000011E00230000"
-		"0001001111000000" "00FF041F03";
+		"0300002D02F08064222203EB70801E1E00170022223333000000011E00230000000100000000000000FF041F03";
 
 	s = smprint("%.*H", n, buf);
 	if(strcmp(s, want) != 0)
 		sysfatal("testputmsg18: want '%s', got '%s'", want, s);
+	free(s);
 	return 0;
 }
 
@@ -842,10 +866,9 @@ testgetmsg18(void)
 }
 
 int
-msgtests()
+msgtests(void)
 {
 	fmtinstall('H', encodefmt);
-	fmtinstall('[', encodefmt);
 	testputmsg1();
 	testputmsg2();
 	testputmsg3();

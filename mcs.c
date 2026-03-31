@@ -323,20 +323,20 @@ putgccr(uchar* buf, uint nb, Msg* m)
 	PSHORT(p+14, 0xAA03);	// SASSequence
 	PLONG(p+16, 0x409);	// keyboardLayout=us
 	PLONG(p+20, 2600); 	// clientBuild
-	memset(p+24, 32, 0);	// clientName[32]
+	memset(p+24, 0, 32);	// clientName[32]
 	toutf16(p+24, 32, sysname, strlen(sysname)+1);
 	PSHORT(p+54, 0);		// zero-terminateclientName
 	PLONG(p+56, 4);	// keyboardType: 4="IBM enhanced (101-key or 102-key)"
 	PLONG(p+60, 0);	// keyboardSubType
 	PLONG(p+64, 12);	// keyboardFunctionKey
-	memset(p+68, 64, 0);	// imeFileName[64]
+	memset(p+68, 0, 64);	// imeFileName[64]
 	PSHORT(p+132, 0xCA01);	// postBeta2ColorDepth=8bpp, ignored
 	PSHORT(p+134, 1);	// clientProductId
 	PLONG(p+136, 0);	// serialNumber
 	PSHORT(p+140, MIN(depth, 24));	// highColorDepth: 4, 8, 15, 16, 24 bpp.
 	PSHORT(p+142, 1+2+4+8);	// supportedColorDepths: 1=24, 2=16, 4=15, 8=32 bpp
 	PSHORT(p+144, earlyCapabilityFlags);	// earlyCapabilityFlags 
-	memset(p+146, 64, 0);	// clientDigProductId[64]
+	memset(p+146, 0, 64);	// clientDigProductId[64]
 	p[210] = 7;	// connectionType: 7=autodetect
 	p[211] = 0;	// pad1octet
 	PLONG(p+212, sproto);	// serverSelectedProtocol

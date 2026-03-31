@@ -490,7 +490,7 @@ putclientinfo(uchar* b, uint nb, Msg* m)
 	PSHORT(q+2, 0);	// clientAddress
 	PSHORT(q+4, 2);	// cbClientDir
 	PSHORT(q+6, 0);	// clientDir
-	memset(q+8, 172, 0);	// clientTimeZone
+	memset(q+8, 0, 172);	// clientTimeZone
 	PLONG(q+180, 0);	// clientSessionId
 	PLONG(q+184, perfopt);	// performanceFlags 
 	q += 188;

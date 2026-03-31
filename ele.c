@@ -114,12 +114,12 @@ putlicensemsg(uchar* buf, uint nb, Msg* m)
 		PSHORT(p+2, ndata);
 		PLONG(p+4, KeyExRSA);
 		PLONG(p+8, 0);
-		memset(p+12, RandomSize, 0);
+		memset(p+12, 0, RandomSize);
 		p += 12+RandomSize;
 	
 		PSHORT(p+0, Brandom);
 		PSHORT(p+2, 48);
-		memset(p+4, 48, 0);
+		memset(p+4, 0, 48);
 		p += 4+48;
 
 		PSHORT(p+0, Bcuser);

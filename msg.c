@@ -272,7 +272,7 @@ putmsg(uchar* b, uint nb, Msg* m)
 	
 		q = putsdh(p, p+nld, nld, ADsupress, m->originid, m->shareid);
 		q[0] = (m->allow?1:0); 
-		memset(q+1, 3, 0);
+		memset(q+1, 0, 3);
 		if(m->allow){
 			PSHORT(q+4, 0);	// left
 			PSHORT(q+6, 0);	// top

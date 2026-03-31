@@ -138,7 +138,7 @@ unrle(uchar* d, int nd, uchar* s, int ns, int bpl, int pixelsize)
 		len *= pixelsize;
 		if(wp+len > we){
 		   Overrun:
-			werrstr("unrle: output buffer is %uld bytes short", wp+len-we);
+			werrstr("unrle: output buffer is %uld bytes short", (ulong)(wp-we+len));
 			return nil;
 		}
 
@@ -173,7 +173,7 @@ unrle(uchar* d, int nd, uchar* s, int ns, int bpl, int pixelsize)
 				}
 				memmove(wp, wp-bpl, len);
 			}else
-				memset(wp, len, 0);
+				memset(wp, 0, len);
 			wasbg = 1;
 			break;
 		case FgS:
@@ -219,7 +219,7 @@ unrle(uchar* d, int nd, uchar* s, int ns, int bpl, int pixelsize)
 					if(wp-bpl >= d)
 						memmove(wp, wp-bpl, pixelsize);
 					else
-						memset(wp, pixelsize, 0);
+						memset(wp, 0, pixelsize);
 				}
 				wp += pixelsize;
 				len -= pixelsize;
@@ -251,7 +251,7 @@ unrle(uchar* d, int nd, uchar* s, int ns, int bpl, int pixelsize)
 			len = pixelsize;
 			if(wp+len > we)
 				goto Overrun;
-			memset(wp, pixelsize, 0);
+			memset(wp, 0, pixelsize);
 			break;
 		}
 		wp += len;
