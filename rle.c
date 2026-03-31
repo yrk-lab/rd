@@ -59,19 +59,28 @@ decode[2][16] =
 static void*
 memfill(void *a1, ulong n1, void *a2, ulong n2)
 {
-	char *s1, *s2, *e1, *e2;
+	char *p, *e;
 
 	if((long)n1 < 0 || (long)n2 <= 0)
 		abort();
-	s1 = a1;
-	s2 = a2;
-	e1 = s1+n1;
-	e2 = s2+n2;
-	while(s1 < e1){
-		*s1++ = *s2++;
-		if(s2 >= e2)
-			s2 = a2;
+
+	if(n2 > n1)
+		n2 = n1;
+
+	memmove(a1, a2, n2);
+
+	p = (char*)a1 + n2;
+	e = (char*)a1 + n1;
+
+	while(p + n2 < e){
+		memmove(p, a1, n2);
+		p += n2;
+		n2 <<= 1;
 	}
+
+	if(p < e)
+		memmove(p, a1, e - p);
+
 	return a1;
 }
 
