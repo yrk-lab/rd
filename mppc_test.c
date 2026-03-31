@@ -3,7 +3,7 @@
 int mppctests(void);
 
 static int
-testuncomp1(void)
+testuncomp_preset(void)
 {
 	/* Preset with no Pcompress: history is reset and input returned unchanged */
 	uchar input[] = {0x12, 0x34};
@@ -12,16 +12,16 @@ testuncomp1(void)
 
 	out = uncomp(input, 2, 0x80, &psize);	/* flags=Preset */
 	if(out == nil)
-		sysfatal("testuncomp1: unexpected error: %r");
+		sysfatal("testuncomp_preset: unexpected error: %r");
 	if(out != input)
-		sysfatal("testuncomp1: expected input buffer returned unchanged");
+		sysfatal("testuncomp_preset: expected input buffer returned unchanged");
 	if(psize != 2)
-		sysfatal("testuncomp1: psize: want 2, got %d", psize);
+		sysfatal("testuncomp_preset: psize: want 2, got %d", psize);
 	return 0;
 }
 
 static int
-testuncomp2(void)
+testuncomp_preset_lit7(void)
 {
 	/*
 	 * Preset + Pcompress: decompress two 7-bit literals.
@@ -33,11 +33,11 @@ testuncomp2(void)
 
 	out = uncomp(input, 2, 0x80|0x20, &psize);	/* flags=Preset|Pcompress */
 	if(out == nil)
-		sysfatal("testuncomp2: unexpected error: %r");
+		sysfatal("testuncomp_preset_lit7: unexpected error: %r");
 	if(psize != 2)
-		sysfatal("testuncomp2: psize: want 2, got %d", psize);
+		sysfatal("testuncomp_preset_lit7: psize: want 2, got %d", psize);
 	if(out[0] != 'A' || out[1] != 'B')
-		sysfatal("testuncomp2: data: want AB, got %c%c", out[0], out[1]);
+		sysfatal("testuncomp_preset_lit7: data: want AB, got %c%c", out[0], out[1]);
 	return 0;
 }
 
@@ -278,8 +278,8 @@ testuncomp_bad_length(void)
 int
 mppctests(void)
 {
-	testuncomp1();
-	testuncomp2();
+	testuncomp_preset();
+	testuncomp_preset_lit7();
 	testuncomp_lit8();
 	testuncomp_off6();
 	testuncomp_off8();

@@ -4,8 +4,8 @@ void playsound(Rdp*, uchar*, uint) {};
 
 int audiotests(void);
 
-static int testaudio1(void);
-static int testaudio2(void);
+static int testaudio_getfmt(void);
+static int testaudio_putfmt(void);
 
 
 static char* pkt1 = 
@@ -307,7 +307,7 @@ static char* pkt1 =
 "4001";
 
 static int
-testaudio1(){
+testaudio_getfmt(){
 	int n, nb;
 	uchar buf[1042];
 	Audiomsg r;
@@ -315,29 +315,29 @@ testaudio1(){
 	nb = dec16(buf, sizeof buf, pkt1, strlen(pkt1));
 	n = audiogetmsg(&r, buf, nb);
 	if(n < 0)
-		sysfatal("testaudio1: unexpected error: %r\n");
+		sysfatal("testaudio_getfmt: unexpected error: %r\n");
 	if(n != 1042)
-		sysfatal("testaudio1: len: want %d, got %d\n", 1042, n);
+		sysfatal("testaudio_getfmt: len: want %d, got %d\n", 1042, n);
 	if(r.type != Afmt)
-		sysfatal("testaudio1: r.type: want 0x%x, got 0x%x\n",
+		sysfatal("testaudio_getfmt: r.type: want 0x%x, got 0x%x\n",
 			Afmt, r.type);
 	if(r.seq != 255)
-		sysfatal("testaudio1: r.seq: want %ud, got %ud\n",
+		sysfatal("testaudio_getfmt: r.seq: want %ud, got %ud\n",
 			255, r.seq);
 	if(r.ver != 8)
-		sysfatal("testaudio1: r.ver: want %ud, got %ud\n",
+		sysfatal("testaudio_getfmt: r.ver: want %ud, got %ud\n",
 			8, r.ver);
 	if(r.nfmt != 41)
-		sysfatal("testaudio1: r.nfmt: want %ud, got %ud\n",
+		sysfatal("testaudio_getfmt: r.nfmt: want %ud, got %ud\n",
 			41, r.nfmt);
 	if(r.ndata != 1018)
-		sysfatal("testaudio1: r.bdata: want %ud, got %ud\n",
+		sysfatal("testaudio_getfmt: r.bdata: want %ud, got %ud\n",
 			1018, r.ndata);
 	return 0;
 }
 
 static int
-testaudio2()
+testaudio_putfmt()
 {
 	int n;
 	char *s, *want;
@@ -347,15 +347,15 @@ testaudio2()
 	m.type = Afmt;
 	n = audioputmsg(buf, sizeof buf, &m);
 	if(n < 0)
-		sysfatal("testaudio2: unexpected error: %r\n");
+		sysfatal("testaudio_putfmt: unexpected error: %r\n");
 	s = smprint("%.*H", n, buf);
 	want = "07002600" "01000000" "FFFFFFFF" "00000100"
 		"00000100" "00050000" "01000200" "44AC0000"
 		"10B10200" "04001000" "0000";
 	if(strcmp(s, want) != 0)
-		sysfatal("testaudio2: want %s, got %s", want, s);
+		sysfatal("testaudio_putfmt: want %s, got %s", want, s);
 	if(n != strlen(want)/2)
-		sysfatal("testaudio2: want %ld, got %d", strlen(want)/2, n);
+		sysfatal("testaudio_putfmt: want %ld, got %d", strlen(want)/2, n);
 	return 0;
 }
 
@@ -364,7 +364,7 @@ audiotests()
 {
 	fmtinstall('H', encodefmt);
 
-	testaudio1();
-	testaudio2();
+	testaudio_getfmt();
+	testaudio_putfmt();
 	return 0;
 }
