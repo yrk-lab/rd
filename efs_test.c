@@ -10,6 +10,7 @@ void testcnrq(void);
 void testsannrq(void);
 
 int audiotests(void);
+int egditests(void);
 int msgtests(void);
 int mppctests(void);
 int rletests(void);
@@ -128,6 +129,7 @@ main(int, char**)
 	testcann();
 	testcnrq();
 	audiotests();
+	egditests();
 	msgtests();
 	mppctests();
 	rletests();
