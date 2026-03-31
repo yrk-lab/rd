@@ -168,6 +168,7 @@ putgencaps(uchar *p, uint nb, Caps* caps)
 	PSHORT(p+4, 0);	// OSMAJORTYPE_UNSPECIFIED
 	PSHORT(p+6, 0);	// OSMINORTYPE_UNSPECIFIED
 	PSHORT(p+8, 0x200);	// TS_CAPS_PROTOCOLVERSION
+	PSHORT(p+10, 0);	// pad2octetsA
 	PSHORT(p+12, 0);	// generalCompressionTypes
 	PSHORT(p+14, extraFlags);
 	PSHORT(p+16, 0);	// updateCapabilityFlag
@@ -201,7 +202,7 @@ putbitcaps(uchar *p, uint nb, Caps* caps)
 	PSHORT(p+22, 0);	// highColorFlags 
 	PSHORT(p+24, 1);	// drawingFlags 
 	PSHORT(p+26, 1);	// multipleRectangleSupport
-	PSHORT(p+26, 0);	// pad2octetsB
+	PSHORT(p+28, 0);	// pad2octetsB
 	return 30;
 }
 
