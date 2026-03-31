@@ -42,6 +42,7 @@ TESTOFILES=\
 	msg_test.$O	x224.$O mcs.$O ele.$O mpas.$O alloc.$O cap.$O egdi.$O \
 	mppc_test.$O	\
 	rle_test.$O	\
+	utf16_test.$O	\
 
 </sys/src/cmd/mkone
 #<$PLAN9/src/mkone
