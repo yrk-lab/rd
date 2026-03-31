@@ -865,6 +865,75 @@ testgetmsg18(void)
 	return 0;
 }
 
+static int
+testgetcaps1(void)
+{
+	/*
+	 * Server Demand Active PDU containing two capability sets:
+	 *   CapGeneral (type=1, len=24): canrefresh=1, cansupress=1
+	 *   CapBitmap  (type=2, len=16): depth=32, xsz=1024, ysz=768
+	 * getcaps is exercised via getmsg → getshareT → getcaps.
+	 */
+	int n, nb;
+	uchar buf[128];
+	Msg m = {0};
+	Share as = {0};
+	Caps caps;
+	char *hex =
+		/* TPKT + X.224 Data */
+		"0300004902F080"
+		/* MCS Send Data Indication on GLOBALCHAN */
+		"68" "1111" "03EB" "70" "803A"
+		/* Share Control Header: totalLength=58, PDUactivate, source */
+		"3A00" "0100" "1111"
+		/* shareid(LE), nsrc=0, capsLen=44 */
+		"EFBEADDE" "0000" "2C00"
+		/* ncap=2, pad */
+		"02000000"
+		/* CapGeneral: type=1, len=24; canrefresh=p[22]=1, cansupress=p[23]=1 */
+		"01001800"
+		"00000000000000000000"	// data[4..13]
+		"0000000000000000"	// data[14..21]
+		"0101"			// canrefresh, cansupress
+		/* CapBitmap: type=2, len=16; depth=32, xsz=1024, ysz=768 */
+		"02001000"
+		"2000"			// depth=32
+		"000000000000"		// receive* fields
+		"00040003";		// xsz=1024 (LE), ysz=768 (LE)
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetcaps1: getmsg: unexpected error: %r");
+	if(m.type != Aupdate)
+		sysfatal("testgetcaps1: type: want Aupdate, got %d", m.type);
+	if(m.getshare != getshareT)
+		sysfatal("testgetcaps1: getshare: expected getshareT");
+	n = m.getshare(&as, m.data, m.ndata);
+	if(n <= 0)
+		sysfatal("testgetcaps1: getshare: unexpected error: %r");
+	if(as.type != ShActivate)
+		sysfatal("testgetcaps1: share type: want ShActivate, got %d", as.type);
+	n = getcaps(&caps, as.data, as.ndata);
+	if(n < 0)
+		sysfatal("testgetcaps1: getcaps: unexpected error: %r");
+	if(!caps.general)
+		sysfatal("testgetcaps1: caps.general: want 1, got 0");
+	if(caps.canrefresh != 1)
+		sysfatal("testgetcaps1: canrefresh: want 1, got %d", caps.canrefresh);
+	if(caps.cansupress != 1)
+		sysfatal("testgetcaps1: cansupress: want 1, got %d", caps.cansupress);
+	if(!caps.bitmap)
+		sysfatal("testgetcaps1: caps.bitmap: want 1, got 0");
+	if(caps.depth != 32)
+		sysfatal("testgetcaps1: depth: want 32, got %d", caps.depth);
+	if(caps.xsz != 1024)
+		sysfatal("testgetcaps1: xsz: want 1024, got %d", caps.xsz);
+	if(caps.ysz != 768)
+		sysfatal("testgetcaps1: ysz: want 768, got %d", caps.ysz);
+	return 0;
+}
+
 int
 msgtests(void)
 {
@@ -905,5 +974,6 @@ msgtests(void)
 	testgetmsg16();
 	testgetmsg17();
 	testgetmsg18();
+	testgetcaps1();
 	return 0;
 }

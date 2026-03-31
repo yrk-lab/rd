@@ -34,11 +34,13 @@ OFILES=\
 
 THREADOFILES=${OFILES:rd.$O=rd-thread.$O}
 CLEANFILES=$O.thread $O.test
-TESTHFILES=audio.c
+TESTHFILES=audio.c mppc.c rle.c
 TESTOFILES=\
 	efs_test.$O	efs.$O utf16.$O \
 	aud_test.$O	\
-	msg_test.$O	x224.$O mcs.$O ele.$O mpas.$O mppc.$O alloc.$O cap.$O egdi.$O \
+	msg_test.$O	x224.$O mcs.$O ele.$O mpas.$O alloc.$O cap.$O egdi.$O \
+	mppc_test.$O	\
+	rle_test.$O	\
 
 </sys/src/cmd/mkone
 #<$PLAN9/src/mkone
