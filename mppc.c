@@ -107,7 +107,7 @@ uncomp(uchar* buf, int nbytes, int flags, int* psize)
 	if(flags&Preset){
 		s->indx = 0;
 		s->size = 0;
-		memset(s->his, maxhis, 0);
+		memset(s->his, 0, maxhis);
 	}
 	if(flags&Pfront){
 		s->indx = 0;

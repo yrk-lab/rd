@@ -12,6 +12,7 @@ void testcnrq(void);
 void testsannrq(void);
 
 int audiotests(void);
+int msgtests(void);
 
 void
 testsannrq()
@@ -26,7 +27,7 @@ testsannrq()
 	if(n >= 0)
 		sysfatal("testsannrq: expected error");	
 
-	memset(buf, 8, 0);
+	memset(buf, 0, 8);
 	n = getefsmsg(&m, buf, 8);
 	if(n >= 0)
 		sysfatal("testsannrq: expected error");	

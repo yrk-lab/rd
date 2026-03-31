@@ -59,7 +59,7 @@ getcaps(Caps* caps, uchar* a, uint nb)
 
 	p = a;
 	ep = p+nb;
-	memset(caps, sizeof(*caps), 0);
+	memset(caps, 0, sizeof(*caps));
 
 	ncap = GSHORT(p);
 	p += 4;
@@ -231,7 +231,7 @@ putordcaps(uchar *p, uint nb, Caps* caps)
 	}
 	PSHORT(p+0, CapOrder);
 	PSHORT(p+2, 88);	// size
-	memset(p+4, 16, 0);	// terminalDescriptor
+	memset(p+4, 0, 16);	// terminalDescriptor
 	PLONG(p+20, 0);	// pad4octetsA 
 	PSHORT(p+24, 1);	// desktopSaveXGranularity 
 	PSHORT(p+26, 20);	// desktopSaveYGranularity 
@@ -271,7 +271,7 @@ putbc2caps(uchar *p, uint nb, Caps* caps)
 	PLONG(p+16, 336);	// BitmapCache2CellInfo
 	PLONG(p+20, 0);	// BitmapCache3CellInfo
 	PLONG(p+24, 0);	// BitmapCache4CellInfo
-	memset(p+28, 12, 0); // Pad3
+	memset(p+28, 0, 12); // Pad3
 	return 40;
 }
 
@@ -324,7 +324,7 @@ putinpcaps(uchar *p, uint nb, Caps* caps)
 	PLONG(p+12, 4);	// keyboardType: IBM enhanced (101- or 102-key)
 	PLONG(p+16, 0);	// keyboardSubType
 	PLONG(p+20, 12);	// keyboardFunctionKey
-	memset(p+24, 64, 0);	// imeFileName
+	memset(p+24, 0, 64);	// imeFileName
 	return 88;
 }
 
