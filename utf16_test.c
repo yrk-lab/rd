@@ -6,7 +6,7 @@
 int utf16tests(void);
 
 static int
-testtoutf161(void)
+testtoutf16_ascii(void)
 {
 	/* Single ASCII character 'A' → UTF-16LE: 41 00 */
 	char s[] = "A";
@@ -15,15 +15,15 @@ testtoutf161(void)
 
 	n = toutf16(buf, sizeof buf, s, 1);
 	if(n != 2)
-		sysfatal("testtoutf161: len: want 2, got %d", n);
+		sysfatal("testtoutf16_ascii: len: want 2, got %d", n);
 	if(buf[0] != 0x41 || buf[1] != 0x00)
-		sysfatal("testtoutf161: bytes: want 41 00, got %02x %02x",
+		sysfatal("testtoutf16_ascii: bytes: want 41 00, got %02x %02x",
 			buf[0], buf[1]);
 	return 0;
 }
 
 static int
-testtoutf162(void)
+testtoutf16_crlf(void)
 {
 	/*
 	 * Newline '\n' → CR LF pair in UTF-16LE: 0D 00 0A 00.
@@ -35,15 +35,15 @@ testtoutf162(void)
 
 	n = toutf16(buf, sizeof buf, s, 1);
 	if(n != 4)
-		sysfatal("testtoutf162: len: want 4, got %d", n);
+		sysfatal("testtoutf16_crlf: len: want 4, got %d", n);
 	if(buf[0]!=0x0D || buf[1]!=0x00 || buf[2]!=0x0A || buf[3]!=0x00)
-		sysfatal("testtoutf162: bytes: want 0D 00 0A 00, got %02x %02x %02x %02x",
+		sysfatal("testtoutf16_crlf: bytes: want 0D 00 0A 00, got %02x %02x %02x %02x",
 			buf[0], buf[1], buf[2], buf[3]);
 	return 0;
 }
 
 static int
-testtoutf163(void)
+testtoutf16_empty(void)
 {
 	/* Empty string (ns=0) → 0 bytes written */
 	uchar buf[2];
@@ -51,12 +51,12 @@ testtoutf163(void)
 
 	n = toutf16(buf, sizeof buf, "", 0);
 	if(n != 0)
-		sysfatal("testtoutf163: len: want 0, got %d", n);
+		sysfatal("testtoutf16_empty: len: want 0, got %d", n);
 	return 0;
 }
 
 static int
-testtoutf164(void)
+testtoutf16_buftoosmall(void)
 {
 	/* Buffer too small (1 byte) to hold a UTF-16 unit → 0 bytes written */
 	char s[] = "A";
@@ -65,12 +65,12 @@ testtoutf164(void)
 
 	n = toutf16(buf, sizeof buf, s, 1);
 	if(n != 0)
-		sysfatal("testtoutf164: len: want 0, got %d", n);
+		sysfatal("testtoutf16_buftoosmall: len: want 0, got %d", n);
 	return 0;
 }
 
 static int
-testtoutf165(void)
+testtoutf16_bmp(void)
 {
 	/*
 	 * Non-ASCII BMP character U+00E9 'é' (UTF-8: C3 A9)
@@ -82,15 +82,15 @@ testtoutf165(void)
 
 	n = toutf16(buf, sizeof buf, (char*)s, 2);
 	if(n != 2)
-		sysfatal("testtoutf165: len: want 2, got %d", n);
+		sysfatal("testtoutf16_bmp: len: want 2, got %d", n);
 	if(buf[0] != 0xE9 || buf[1] != 0x00)
-		sysfatal("testtoutf165: bytes: want E9 00, got %02x %02x",
+		sysfatal("testtoutf16_bmp: bytes: want E9 00, got %02x %02x",
 			buf[0], buf[1]);
 	return 0;
 }
 
 static int
-testtoutf166(void)
+testtoutf16_surrogate(void)
 {
 	/*
 	 * U+1F600 😀 (UTF-8: F0 9F 98 80) is outside the BMP and encodes
@@ -102,15 +102,15 @@ testtoutf166(void)
 
 	n = toutf16(buf, sizeof buf, (char*)s, 4);
 	if(n != 4)
-		sysfatal("testtoutf166: len: want 4, got %d", n);
+		sysfatal("testtoutf16_surrogate: len: want 4, got %d", n);
 	if(buf[0]!=0x3D || buf[1]!=0xD8 || buf[2]!=0x00 || buf[3]!=0xDE)
-		sysfatal("testtoutf166: bytes: want 3D D8 00 DE, got %02x %02x %02x %02x",
+		sysfatal("testtoutf16_surrogate: bytes: want 3D D8 00 DE, got %02x %02x %02x %02x",
 			buf[0], buf[1], buf[2], buf[3]);
 	return 0;
 }
 
 static int
-testfromutf161(void)
+testfromutf16_ascii(void)
 {
 	/* UTF-16LE 41 00 → ASCII 'A' */
 	uchar ws[] = {0x41, 0x00};
@@ -119,14 +119,14 @@ testfromutf161(void)
 
 	n = fromutf16(buf, sizeof buf, ws, 2);
 	if(n != 1)
-		sysfatal("testfromutf161: len: want 1, got %d", n);
+		sysfatal("testfromutf16_ascii: len: want 1, got %d", n);
 	if(buf[0] != 'A')
-		sysfatal("testfromutf161: byte: want 'A', got %02x", (uchar)buf[0]);
+		sysfatal("testfromutf16_ascii: byte: want 'A', got %02x", (uchar)buf[0]);
 	return 0;
 }
 
 static int
-testfromutf162(void)
+testfromutf16_crlf(void)
 {
 	/*
 	 * CR LF in UTF-16LE (0D 00 0A 00): fromutf16 discards CR,
@@ -138,14 +138,14 @@ testfromutf162(void)
 
 	n = fromutf16(buf, sizeof buf, ws, 4);
 	if(n != 1)
-		sysfatal("testfromutf162: len: want 1, got %d", n);
+		sysfatal("testfromutf16_crlf: len: want 1, got %d", n);
 	if(buf[0] != '\n')
-		sysfatal("testfromutf162: byte: want '\\n', got %02x", (uchar)buf[0]);
+		sysfatal("testfromutf16_crlf: byte: want '\\n', got %02x", (uchar)buf[0]);
 	return 0;
 }
 
 static int
-testfromutf163(void)
+testfromutf16_empty(void)
 {
 	/* Empty input (nw=0) → 0 bytes written */
 	uchar ws[1];
@@ -154,12 +154,12 @@ testfromutf163(void)
 
 	n = fromutf16(buf, sizeof buf, ws, 0);
 	if(n != 0)
-		sysfatal("testfromutf163: len: want 0, got %d", n);
+		sysfatal("testfromutf16_empty: len: want 0, got %d", n);
 	return 0;
 }
 
 static int
-testfromutf164(void)
+testfromutf16_buftoosmall(void)
 {
 	/*
 	 * Output buffer too small for all input: 'A' 'B' in UTF-16LE
@@ -171,14 +171,14 @@ testfromutf164(void)
 
 	n = fromutf16(buf, sizeof buf, ws, 4);
 	if(n != 1)
-		sysfatal("testfromutf164: len: want 1, got %d", n);
+		sysfatal("testfromutf16_buftoosmall: len: want 1, got %d", n);
 	if(buf[0] != 'A')
-		sysfatal("testfromutf164: byte: want 'A', got %02x", (uchar)buf[0]);
+		sysfatal("testfromutf16_buftoosmall: byte: want 'A', got %02x", (uchar)buf[0]);
 	return 0;
 }
 
 static int
-testfromutf165(void)
+testfromutf16_bmp(void)
 {
 	/*
 	 * Non-ASCII BMP character: UTF-16LE E9 00 → U+00E9 'é' (UTF-8: C3 A9)
@@ -189,15 +189,15 @@ testfromutf165(void)
 
 	n = fromutf16((char*)buf, sizeof buf, ws, 2);
 	if(n != 2)
-		sysfatal("testfromutf165: len: want 2, got %d", n);
+		sysfatal("testfromutf16_bmp: len: want 2, got %d", n);
 	if(buf[0] != 0xC3 || buf[1] != 0xA9)
-		sysfatal("testfromutf165: bytes: want C3 A9, got %02x %02x",
+		sysfatal("testfromutf16_bmp: bytes: want C3 A9, got %02x %02x",
 			buf[0], buf[1]);
 	return 0;
 }
 
 static int
-testfromutf166(void)
+testfromutf16_surrogate(void)
 {
 	/*
 	 * Surrogate pair 3D D8 00 DE → U+1F600 😀 (UTF-8: F0 9F 98 80)
@@ -208,9 +208,9 @@ testfromutf166(void)
 
 	n = fromutf16((char*)buf, sizeof buf, ws, 4);
 	if(n != 4)
-		sysfatal("testfromutf166: len: want 4, got %d", n);
+		sysfatal("testfromutf16_surrogate: len: want 4, got %d", n);
 	if(buf[0]!=0xF0 || buf[1]!=0x9F || buf[2]!=0x98 || buf[3]!=0x80)
-		sysfatal("testfromutf166: bytes: want F0 9F 98 80, got %02x %02x %02x %02x",
+		sysfatal("testfromutf16_surrogate: bytes: want F0 9F 98 80, got %02x %02x %02x %02x",
 			buf[0], buf[1], buf[2], buf[3]);
 	return 0;
 }
@@ -218,17 +218,17 @@ testfromutf166(void)
 int
 utf16tests(void)
 {
-	testtoutf161();
-	testtoutf162();
-	testtoutf163();
-	testtoutf164();
-	testtoutf165();
-	testtoutf166();
-	testfromutf161();
-	testfromutf162();
-	testfromutf163();
-	testfromutf164();
-	testfromutf165();
-	testfromutf166();
+	testtoutf16_ascii();
+	testtoutf16_crlf();
+	testtoutf16_empty();
+	testtoutf16_buftoosmall();
+	testtoutf16_bmp();
+	testtoutf16_surrogate();
+	testfromutf16_ascii();
+	testfromutf16_crlf();
+	testfromutf16_empty();
+	testfromutf16_buftoosmall();
+	testfromutf16_bmp();
+	testfromutf16_surrogate();
 	return 0;
 }

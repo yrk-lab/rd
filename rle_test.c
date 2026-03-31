@@ -3,7 +3,7 @@
 int rletests(void);
 
 static int
-testmemfill1(void)
+testmemfill_repeat(void)
 {
 	/* Fill with a pattern shorter than the destination (pattern repeats) */
 	uchar dst[6];
@@ -14,12 +14,12 @@ testmemfill1(void)
 	memfill(dst, sizeof dst, pat, sizeof pat);
 	for(i = 0; i < (int)sizeof dst; i++)
 		if(dst[i] != want[i])
-			sysfatal("testmemfill1: dst[%d]: want 0x%x, got 0x%x", i, want[i], dst[i]);
+			sysfatal("testmemfill_repeat: dst[%d]: want 0x%x, got 0x%x", i, want[i], dst[i]);
 	return 0;
 }
 
 static int
-testmemfill2(void)
+testmemfill_exact(void)
 {
 	/* Fill with a pattern equal in length to the destination */
 	uchar dst[4];
@@ -29,12 +29,12 @@ testmemfill2(void)
 	memfill(dst, sizeof dst, pat, sizeof pat);
 	for(i = 0; i < (int)sizeof dst; i++)
 		if(dst[i] != pat[i])
-			sysfatal("testmemfill2: dst[%d]: want 0x%x, got 0x%x", i, pat[i], dst[i]);
+			sysfatal("testmemfill_exact: dst[%d]: want 0x%x, got 0x%x", i, pat[i], dst[i]);
 	return 0;
 }
 
 static int
-testmemfill3(void)
+testmemfill_onebyte(void)
 {
 	/* Fill a single byte with a single-byte pattern */
 	uchar dst[1] = {0x00};
@@ -42,12 +42,12 @@ testmemfill3(void)
 
 	memfill(dst, sizeof dst, pat, sizeof pat);
 	if(dst[0] != 0x42)
-		sysfatal("testmemfill3: dst[0]: want 0x42, got 0x%x", dst[0]);
+		sysfatal("testmemfill_onebyte: dst[0]: want 0x42, got 0x%x", dst[0]);
 	return 0;
 }
 
 static int
-testmemfill4(void)
+testmemfill_empty(void)
 {
 	/* Zero-length destination: no bytes written, returns a1 */
 	uchar dst[1] = {0x99};
@@ -56,14 +56,14 @@ testmemfill4(void)
 
 	ret = memfill(dst, 0, pat, sizeof pat);
 	if(ret != dst)
-		sysfatal("testmemfill4: return value: want dst, got something else");
+		sysfatal("testmemfill_empty: return value: want dst, got something else");
 	if(dst[0] != 0x99)
-		sysfatal("testmemfill4: dst[0]: want 0x99, got 0x%x", dst[0]);
+		sysfatal("testmemfill_empty: dst[0]: want 0x99, got 0x%x", dst[0]);
 	return 0;
 }
 
 static int
-testmemxor1(void)
+testmemxor_basic(void)
 {
 	/* Basic XOR of two equal-length arrays */
 	uchar a[] = {0xFF, 0x0F, 0xAA};
@@ -74,12 +74,12 @@ testmemxor1(void)
 	memxor(a, b, sizeof a);
 	for(i = 0; i < (int)sizeof a; i++)
 		if((uchar)a[i] != want[i])
-			sysfatal("testmemxor1: a[%d]: want 0x%x, got 0x%x", i, want[i], (uchar)a[i]);
+			sysfatal("testmemxor_basic: a[%d]: want 0x%x, got 0x%x", i, want[i], (uchar)a[i]);
 	return 0;
 }
 
 static int
-testmemxor2(void)
+testmemxor_empty(void)
 {
 	/* XOR with zero-length: no bytes modified */
 	uchar a[] = {0xAB, 0xCD};
@@ -87,12 +87,12 @@ testmemxor2(void)
 
 	memxor(a, b, 0);
 	if(a[0] != 0xAB || a[1] != 0xCD)
-		sysfatal("testmemxor2: unexpected modification: got 0x%x 0x%x", a[0], a[1]);
+		sysfatal("testmemxor_empty: unexpected modification: got 0x%x 0x%x", a[0], a[1]);
 	return 0;
 }
 
 static int
-testmemxor3(void)
+testmemxor_self(void)
 {
 	/* XOR with self yields all zeros */
 	uchar a[] = {0x12, 0x34, 0x56};
@@ -101,12 +101,12 @@ testmemxor3(void)
 	memxor(a, a, sizeof a);
 	for(i = 0; i < (int)sizeof a; i++)
 		if(a[i] != 0)
-			sysfatal("testmemxor3: a[%d]: want 0, got 0x%x", i, a[i]);
+			sysfatal("testmemxor_self: a[%d]: want 0, got 0x%x", i, a[i]);
 	return 0;
 }
 
 static int
-testmemxor4(void)
+testmemxor_zeros(void)
 {
 	/* XOR with all-zero array leaves original unchanged */
 	uchar a[] = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -117,12 +117,12 @@ testmemxor4(void)
 	memxor(a, z, sizeof a);
 	for(i = 0; i < (int)sizeof a; i++)
 		if(a[i] != orig[i])
-			sysfatal("testmemxor4: a[%d]: want 0x%x, got 0x%x", i, orig[i], a[i]);
+			sysfatal("testmemxor_zeros: a[%d]: want 0x%x, got 0x%x", i, orig[i], a[i]);
 	return 0;
 }
 
 static int
-testunrle1(void)
+testunrle_bpix(void)
 {
 	/* Bpix extended opcode (0xFE): sets the current pixel to zero */
 	uchar src[] = {0xFE};
@@ -131,16 +131,16 @@ testunrle1(void)
 
 	end = unrle(dst, sizeof dst, src, sizeof src, 2, 1);
 	if(end == nil)
-		sysfatal("testunrle1: unexpected error: %r");
+		sysfatal("testunrle_bpix: unexpected error: %r");
 	if(end - dst != 1)
-		sysfatal("testunrle1: length: want 1, got %d", (int)(end - dst));
+		sysfatal("testunrle_bpix: length: want 1, got %d", (int)(end - dst));
 	if(dst[0] != 0)
-		sysfatal("testunrle1: pixel: want 0, got %d", dst[0]);
+		sysfatal("testunrle_bpix: pixel: want 0, got %d", dst[0]);
 	return 0;
 }
 
 static int
-testunrle2(void)
+testunrle_bg_firstline(void)
 {
 	/*
 	 * Bg opcode on the first scan line (no previous line):
@@ -153,16 +153,16 @@ testunrle2(void)
 
 	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
 	if(end == nil)
-		sysfatal("testunrle2: unexpected error: %r");
+		sysfatal("testunrle_bg_firstline: unexpected error: %r");
 	if(end - dst != 1)
-		sysfatal("testunrle2: length: want 1, got %d", (int)(end - dst));
+		sysfatal("testunrle_bg_firstline: length: want 1, got %d", (int)(end - dst));
 	if(dst[0] != 0)
-		sysfatal("testunrle2: pixel: want 0, got %d", dst[0]);
+		sysfatal("testunrle_bg_firstline: pixel: want 0, got %d", dst[0]);
 	return 0;
 }
 
 static int
-testunrle3(void)
+testunrle_mix_zeromask(void)
 {
 	/*
 	 * Mix opcode on the first scan line with an all-zero mask byte:
@@ -178,17 +178,17 @@ testunrle3(void)
 	memset(dst, 0xFF, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle3: unexpected error: %r");
+		sysfatal("testunrle_mix_zeromask: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle3: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_mix_zeromask: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 8; i++)
 		if(dst[i] != 0)
-			sysfatal("testunrle3: dst[%d]: want 0, got %d", i, dst[i]);
+			sysfatal("testunrle_mix_zeromask: dst[%d]: want 0, got %d", i, dst[i]);
 	return 0;
 }
 
 static int
-testunrle4(void)
+testunrle_lit(void)
 {
 	/*
 	 * Lit opcode: code=8, bits=Bits5=31, raw_len=3 → len=3 pixels.
@@ -200,17 +200,17 @@ testunrle4(void)
 
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle4: unexpected error: %r");
+		sysfatal("testunrle_lit: unexpected error: %r");
 	if(end - dst != 3)
-		sysfatal("testunrle4: length: want 3, got %d", (int)(end - dst));
+		sysfatal("testunrle_lit: length: want 3, got %d", (int)(end - dst));
 	if(dst[0] != 0xAA || dst[1] != 0xBB || dst[2] != 0xCC)
-		sysfatal("testunrle4: pixels: want AA BB CC, got %02x %02x %02x",
+		sysfatal("testunrle_lit: pixels: want AA BB CC, got %02x %02x %02x",
 			dst[0], dst[1], dst[2]);
 	return 0;
 }
 
 static int
-testunrle5(void)
+testunrle_fg_firstline(void)
 {
 	/*
 	 * Fg opcode on the first scan line (no previous line):
@@ -225,17 +225,17 @@ testunrle5(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle5: unexpected error: %r");
+		sysfatal("testunrle_fg_firstline: unexpected error: %r");
 	if(end - dst != 4)
-		sysfatal("testunrle5: length: want 4, got %d", (int)(end - dst));
+		sysfatal("testunrle_fg_firstline: length: want 4, got %d", (int)(end - dst));
 	for(i = 0; i < 4; i++)
 		if(dst[i] != 0xFF)
-			sysfatal("testunrle5: dst[%d]: want 0xFF, got 0x%02x", i, dst[i]);
+			sysfatal("testunrle_fg_firstline: dst[%d]: want 0xFF, got 0x%02x", i, dst[i]);
 	return 0;
 }
 
 static int
-testunrle6(void)
+testunrle_fgs(void)
 {
 	/*
 	 * FgS opcode: code=12, bits=Bits4=15, raw_len=1 → len=1 pixel.
@@ -248,16 +248,16 @@ testunrle6(void)
 
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle6: unexpected error: %r");
+		sysfatal("testunrle_fgs: unexpected error: %r");
 	if(end - dst != 1)
-		sysfatal("testunrle6: length: want 1, got %d", (int)(end - dst));
+		sysfatal("testunrle_fgs: length: want 1, got %d", (int)(end - dst));
 	if(dst[0] != 0x42)
-		sysfatal("testunrle6: pixel: want 0x42, got 0x%02x", dst[0]);
+		sysfatal("testunrle_fgs: pixel: want 0x42, got 0x%02x", dst[0]);
 	return 0;
 }
 
 static int
-testunrle7(void)
+testunrle_fill(void)
 {
 	/*
 	 * Fill opcode: code=6, bits=Bits5=31, raw_len=3 → len=3 pixels.
@@ -271,17 +271,17 @@ testunrle7(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle7: unexpected error: %r");
+		sysfatal("testunrle_fill: unexpected error: %r");
 	if(end - dst != 3)
-		sysfatal("testunrle7: length: want 3, got %d", (int)(end - dst));
+		sysfatal("testunrle_fill: length: want 3, got %d", (int)(end - dst));
 	for(i = 0; i < 3; i++)
 		if(dst[i] != 0x55)
-			sysfatal("testunrle7: dst[%d]: want 0x55, got 0x%02x", i, dst[i]);
+			sysfatal("testunrle_fill: dst[%d]: want 0x55, got 0x%02x", i, dst[i]);
 	return 0;
 }
 
 static int
-testunrle8(void)
+testunrle_dith(void)
 {
 	/*
 	 * Dith opcode: code=14, bits=Bits4=15, raw_len=1 → len=1 (×pixelsize).
@@ -295,16 +295,16 @@ testunrle8(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle8: unexpected error: %r");
+		sysfatal("testunrle_dith: unexpected error: %r");
 	if(end - dst != 2)
-		sysfatal("testunrle8: length: want 2, got %d", (int)(end - dst));
+		sysfatal("testunrle_dith: length: want 2, got %d", (int)(end - dst));
 	if(dst[0] != 0xAA || dst[1] != 0xBB)
-		sysfatal("testunrle8: pixels: want AA BB, got %02x %02x", dst[0], dst[1]);
+		sysfatal("testunrle_dith: pixels: want AA BB, got %02x %02x", dst[0], dst[1]);
 	return 0;
 }
 
 static int
-testunrle9(void)
+testunrle_wpix(void)
 {
 	/*
 	 * Wpix extended opcode (0xFD): sets the current pixel to DWhite (0xFF).
@@ -316,16 +316,16 @@ testunrle9(void)
 	dst[0] = 0;
 	end = unrle(dst, sizeof dst, src, sizeof src, 2, 1);
 	if(end == nil)
-		sysfatal("testunrle9: unexpected error: %r");
+		sysfatal("testunrle_wpix: unexpected error: %r");
 	if(end - dst != 1)
-		sysfatal("testunrle9: length: want 1, got %d", (int)(end - dst));
+		sysfatal("testunrle_wpix: length: want 1, got %d", (int)(end - dst));
 	if(dst[0] != 0xFF)
-		sysfatal("testunrle9: pixel: want 0xFF, got 0x%02x", dst[0]);
+		sysfatal("testunrle_wpix: pixel: want 0xFF, got 0x%02x", dst[0]);
 	return 0;
 }
 
 static int
-testunrle10(void)
+testunrle_mix_nontrivial(void)
 {
 	/*
 	 * Mix opcode with non-trivial mask (0xAA = 10101010):
@@ -342,18 +342,18 @@ testunrle10(void)
 	memset(dst, 0x55, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle10: unexpected error: %r");
+		sysfatal("testunrle_mix_nontrivial: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle10: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_mix_nontrivial: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 8; i++)
 		if(dst[i] != want[i])
-			sysfatal("testunrle10: dst[%d]: want 0x%02x, got 0x%02x",
+			sysfatal("testunrle_mix_nontrivial: dst[%d]: want 0x%02x, got 0x%02x",
 				i, want[i], dst[i]);
 	return 0;
 }
 
 static int
-testunrle11(void)
+testunrle_mixs(void)
 {
 	/*
 	 * MixS opcode: code=13, bits=Bits4=15, raw_len=1 → len=8 pixels.
@@ -368,17 +368,17 @@ testunrle11(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle11: unexpected error: %r");
+		sysfatal("testunrle_mixs: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle11: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_mixs: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 8; i++)
 		if(dst[i] != 0x42)
-			sysfatal("testunrle11: dst[%d]: want 0x42, got 0x%02x", i, dst[i]);
+			sysfatal("testunrle_mixs: dst[%d]: want 0x42, got 0x%02x", i, dst[i]);
 	return 0;
 }
 
 static int
-testunrle12(void)
+testunrle_mix3(void)
 {
 	/*
 	 * Mix3 extended opcode (0xF9): fixed bitmask sreg=3 (00000011).
@@ -394,18 +394,18 @@ testunrle12(void)
 	memset(dst, 0x55, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle12: unexpected error: %r");
+		sysfatal("testunrle_mix3: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle12: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_mix3: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 8; i++)
 		if(dst[i] != want[i])
-			sysfatal("testunrle12: dst[%d]: want 0x%02x, got 0x%02x",
+			sysfatal("testunrle_mix3: dst[%d]: want 0x%02x, got 0x%02x",
 				i, want[i], dst[i]);
 	return 0;
 }
 
 static int
-testunrle13(void)
+testunrle_mix5(void)
 {
 	/*
 	 * Mix5 extended opcode (0xFA): fixed bitmask sreg=5 (00000101).
@@ -421,18 +421,18 @@ testunrle13(void)
 	memset(dst, 0x55, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle13: unexpected error: %r");
+		sysfatal("testunrle_mix5: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle13: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_mix5: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 8; i++)
 		if(dst[i] != want[i])
-			sysfatal("testunrle13: dst[%d]: want 0x%02x, got 0x%02x",
+			sysfatal("testunrle_mix5: dst[%d]: want 0x%02x, got 0x%02x",
 				i, want[i], dst[i]);
 	return 0;
 }
 
 static int
-testunrle14(void)
+testunrle_bg_secondline(void)
 {
 	/*
 	 * Bg on second scan line: copies pixels from the previous scan line.
@@ -449,18 +449,18 @@ testunrle14(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
 	if(end == nil)
-		sysfatal("testunrle14: unexpected error: %r");
+		sysfatal("testunrle_bg_secondline: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle14: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_bg_secondline: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 4; i++)
 		if(dst[4+i] != dst[i])
-			sysfatal("testunrle14: dst[%d]: want 0x%02x, got 0x%02x",
+			sysfatal("testunrle_bg_secondline: dst[%d]: want 0x%02x, got 0x%02x",
 				4+i, dst[i], dst[4+i]);
 	return 0;
 }
 
 static int
-testunrle15(void)
+testunrle_fg_secondline(void)
 {
 	/*
 	 * Fg on second scan line: fills with pen (DWhite) then XORs with
@@ -479,18 +479,18 @@ testunrle15(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
 	if(end == nil)
-		sysfatal("testunrle15: unexpected error: %r");
+		sysfatal("testunrle_fg_secondline: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle15: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_fg_secondline: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 4; i++)
 		if(dst[4+i] != want[i])
-			sysfatal("testunrle15: dst[%d]: want 0x%02x, got 0x%02x",
+			sysfatal("testunrle_fg_secondline: dst[%d]: want 0x%02x, got 0x%02x",
 				4+i, want[i], dst[4+i]);
 	return 0;
 }
 
 static int
-testunrle16(void)
+testunrle_fgs_secondline(void)
 {
 	/*
 	 * FgS on second scan line: sets a new pen (0xF0) then XORs with
@@ -509,18 +509,18 @@ testunrle16(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
 	if(end == nil)
-		sysfatal("testunrle16: unexpected error: %r");
+		sysfatal("testunrle_fgs_secondline: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle16: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_fgs_secondline: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 4; i++)
 		if(dst[4+i] != want[i])
-			sysfatal("testunrle16: dst[%d]: want 0x%02x, got 0x%02x",
+			sysfatal("testunrle_fgs_secondline: dst[%d]: want 0x%02x, got 0x%02x",
 				4+i, want[i], dst[4+i]);
 	return 0;
 }
 
 static int
-testunrle17(void)
+testunrle_bg_consecutive(void)
 {
 	/*
 	 * Consecutive Bg runs (wasbg flag): after a Bg run sets wasbg=1, the
@@ -537,19 +537,19 @@ testunrle17(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 4, 1);
 	if(end == nil)
-		sysfatal("testunrle17: unexpected error: %r");
+		sysfatal("testunrle_bg_consecutive: unexpected error: %r");
 	if(end - dst != 12)
-		sysfatal("testunrle17: length: want 12, got %d", (int)(end - dst));
+		sysfatal("testunrle_bg_consecutive: length: want 12, got %d", (int)(end - dst));
 	if(dst[8] != 0xEE)
-		sysfatal("testunrle17: dst[8]: want 0xEE, got 0x%02x", dst[8]);
+		sysfatal("testunrle_bg_consecutive: dst[8]: want 0xEE, got 0x%02x", dst[8]);
 	if(dst[9] != 0x22 || dst[10] != 0x33 || dst[11] != 0x44)
-		sysfatal("testunrle17: dst[9..11]: want 22 33 44, got %02x %02x %02x",
+		sysfatal("testunrle_bg_consecutive: dst[9..11]: want 22 33 44, got %02x %02x %02x",
 			dst[9], dst[10], dst[11]);
 	return 0;
 }
 
 static int
-testunrle18(void)
+testunrle_overrun(void)
 {
 	/*
 	 * Overrun detection: output buffer is smaller than the decoded data.
@@ -561,12 +561,12 @@ testunrle18(void)
 
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end != nil)
-		sysfatal("testunrle18: expected nil return on overrun, got non-nil");
+		sysfatal("testunrle_overrun: expected nil return on overrun, got non-nil");
 	return 0;
 }
 
 static int
-testunrle19(void)
+testunrle_extbg(void)
 {
 	/*
 	 * Extended Bg opcode (0xF0): len taken from following 2-byte little-
@@ -580,17 +580,17 @@ testunrle19(void)
 	memset(dst, 0xFF, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle19: unexpected error: %r");
+		sysfatal("testunrle_extbg: unexpected error: %r");
 	if(end - dst != 4)
-		sysfatal("testunrle19: length: want 4, got %d", (int)(end - dst));
+		sysfatal("testunrle_extbg: length: want 4, got %d", (int)(end - dst));
 	for(i = 0; i < 4; i++)
 		if(dst[i] != 0)
-			sysfatal("testunrle19: dst[%d]: want 0, got 0x%02x", i, dst[i]);
+			sysfatal("testunrle_extbg: dst[%d]: want 0, got 0x%02x", i, dst[i]);
 	return 0;
 }
 
 static int
-testunrle20(void)
+testunrle_extfg(void)
 {
 	/*
 	 * Extended Fg opcode (0xF1): len from 2-byte field.
@@ -605,17 +605,17 @@ testunrle20(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle20: unexpected error: %r");
+		sysfatal("testunrle_extfg: unexpected error: %r");
 	if(end - dst != 3)
-		sysfatal("testunrle20: length: want 3, got %d", (int)(end - dst));
+		sysfatal("testunrle_extfg: length: want 3, got %d", (int)(end - dst));
 	for(i = 0; i < 3; i++)
 		if(dst[i] != 0xFF)
-			sysfatal("testunrle20: dst[%d]: want 0xFF, got 0x%02x", i, dst[i]);
+			sysfatal("testunrle_extfg: dst[%d]: want 0xFF, got 0x%02x", i, dst[i]);
 	return 0;
 }
 
 static int
-testunrle21(void)
+testunrle_extlit(void)
 {
 	/*
 	 * Extended Lit opcode (0xF4): len from 2-byte field.
@@ -628,17 +628,17 @@ testunrle21(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 10, 1);
 	if(end == nil)
-		sysfatal("testunrle21: unexpected error: %r");
+		sysfatal("testunrle_extlit: unexpected error: %r");
 	if(end - dst != 3)
-		sysfatal("testunrle21: length: want 3, got %d", (int)(end - dst));
+		sysfatal("testunrle_extlit: length: want 3, got %d", (int)(end - dst));
 	if(dst[0] != 0xAA || dst[1] != 0xBB || dst[2] != 0xCC)
-		sysfatal("testunrle21: pixels: want AA BB CC, got %02x %02x %02x",
+		sysfatal("testunrle_extlit: pixels: want AA BB CC, got %02x %02x %02x",
 			dst[0], dst[1], dst[2]);
 	return 0;
 }
 
 static int
-testunrle22(void)
+testunrle_extfill_32bpp(void)
 {
 	/*
 	 * Extended Fill opcode (0xF3) with pixelsize=4 (32-bpp):
@@ -654,12 +654,12 @@ testunrle22(void)
 	memset(dst, 0, sizeof dst);
 	end = unrle(dst, sizeof dst, src, sizeof src, 8, 4);
 	if(end == nil)
-		sysfatal("testunrle22: unexpected error: %r");
+		sysfatal("testunrle_extfill_32bpp: unexpected error: %r");
 	if(end - dst != 8)
-		sysfatal("testunrle22: length: want 8, got %d", (int)(end - dst));
+		sysfatal("testunrle_extfill_32bpp: length: want 8, got %d", (int)(end - dst));
 	for(i = 0; i < 8; i++)
 		if(dst[i] != want[i])
-			sysfatal("testunrle22: dst[%d]: want 0x%02x, got 0x%02x",
+			sysfatal("testunrle_extfill_32bpp: dst[%d]: want 0x%02x, got 0x%02x",
 				i, want[i], dst[i]);
 	return 0;
 }
@@ -667,35 +667,35 @@ testunrle22(void)
 int
 rletests(void)
 {
-	testmemfill1();
-	testmemfill2();
-	testmemfill3();
-	testmemfill4();
-	testmemxor1();
-	testmemxor2();
-	testmemxor3();
-	testmemxor4();
-	testunrle1();
-	testunrle2();
-	testunrle3();
-	testunrle4();
-	testunrle5();
-	testunrle6();
-	testunrle7();
-	testunrle8();
-	testunrle9();
-	testunrle10();
-	testunrle11();
-	testunrle12();
-	testunrle13();
-	testunrle14();
-	testunrle15();
-	testunrle16();
-	testunrle17();
-	testunrle18();
-	testunrle19();
-	testunrle20();
-	testunrle21();
-	testunrle22();
+	testmemfill_repeat();
+	testmemfill_exact();
+	testmemfill_onebyte();
+	testmemfill_empty();
+	testmemxor_basic();
+	testmemxor_empty();
+	testmemxor_self();
+	testmemxor_zeros();
+	testunrle_bpix();
+	testunrle_bg_firstline();
+	testunrle_mix_zeromask();
+	testunrle_lit();
+	testunrle_fg_firstline();
+	testunrle_fgs();
+	testunrle_fill();
+	testunrle_dith();
+	testunrle_wpix();
+	testunrle_mix_nontrivial();
+	testunrle_mixs();
+	testunrle_mix3();
+	testunrle_mix5();
+	testunrle_bg_secondline();
+	testunrle_fg_secondline();
+	testunrle_fgs_secondline();
+	testunrle_bg_consecutive();
+	testunrle_overrun();
+	testunrle_extbg();
+	testunrle_extfg();
+	testunrle_extlit();
+	testunrle_extfill_32bpp();
 	return 0;
 }
