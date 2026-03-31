@@ -13,6 +13,8 @@ void testsannrq(void);
 
 int audiotests(void);
 int msgtests(void);
+int mppctests(void);
+int rletests(void);
 
 void
 testsannrq()
@@ -128,6 +130,8 @@ main(int, char**)
 	testcnrq();
 	audiotests();
 	msgtests();
+	mppctests();
+	rletests();
 	print("ok\n");
 	exits(nil);
 }
