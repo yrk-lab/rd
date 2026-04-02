@@ -72,15 +72,31 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v1
+          key: 9front-${{ runner.os }}-v2
       - name: Install dependencies
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: sudo apt-get install -y build-essential
-      - name: Download 9front nightly ISO
+      - name: Download 9front ISO
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
           mkdir -p $PLAN9FRONT
-          curl -fL -o /tmp/9front.iso 'http://9front.org/iso/9front.iso'
+          PAGE=$(curl -fsSL http://9front.org/releases/)
+          ISO_URL=$(printf '%s\n' "$PAGE" | grep -Eo 'https?://9front\.org/iso/[^ "<]+amd64[^ "<]+\.torrent' | head -1 | sed 's/\.torrent$//')
+          if [ -z "$ISO_URL" ]; then
+            ISO_URL=$(printf '%s\n' "$PAGE" | grep -Eo 'https?://9front\.org/iso/[^ "<]+amd64[^ "<]+\.iso(\.gz)?' | grep -v torrent | head -1)
+          fi
+          if [ -z "$ISO_URL" ]; then
+            echo "Could not find amd64 ISO URL on http://9front.org/releases/" >&2
+            exit 1
+          fi
+          echo "Downloading: $ISO_URL"
+          curl -fL -o /tmp/9front.iso.tmp "$ISO_URL"
+          if echo "$ISO_URL" | grep -q '\.gz$'; then
+            gunzip -c /tmp/9front.iso.tmp > /tmp/9front.iso
+            rm /tmp/9front.iso.tmp
+          else
+            mv /tmp/9front.iso.tmp /tmp/9front.iso
+          fi
       - name: Extract 9front root and kernel
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
@@ -108,7 +124,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v1
+          key: 9front-${{ runner.os }}-v2
       - name: Install QEMU
         run: sudo apt-get install -y qemu-system-x86
       - name: Copy source into 9front root
@@ -151,7 +167,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v1
+          key: 9front-${{ runner.os }}-v2
       - name: Install QEMU
         run: sudo apt-get install -y qemu-system-x86
       - name: Copy source into 9front root
