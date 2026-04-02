@@ -105,7 +105,7 @@ jobs:
           sudo mount -o loop,ro /tmp/9front.iso /mnt/9front
           cp -a /mnt/9front/. $PLAN9FRONT/root/
           chmod -R u+w $PLAN9FRONT/root/
-          cp $PLAN9FRONT/root/amd64/pc64 $PLAN9FRONT/pc64
+          cp $PLAN9FRONT/root/amd64/9pc64 $PLAN9FRONT/pc64
           sudo umount /mnt/9front
       - name: Build u9fs
         if: steps.cache-9front.outputs.cache-hit != 'true'
