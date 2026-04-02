@@ -5,4 +5,4 @@ if(~ $status '')
 	echo 0 > /rd/exitcode
 if not
 	echo 1 > /rd/exitcode
-echo reboot > /dev/sysctl
+fshalt
