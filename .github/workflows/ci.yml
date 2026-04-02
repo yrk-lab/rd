@@ -5,7 +5,7 @@ on:
   pull_request:
 
 env:
-  PLAN9: /usr/lib/plan9
+  PLAN9: /opt/plan9port
 
 permissions:
   contents: read
@@ -16,10 +16,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install plan9port
+      - name: Cache plan9port
+        id: cache-plan9port
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9 }}
+          key: plan9port-${{ runner.os }}-v1
+      - name: Install plan9port build dependencies
+        run: sudo apt-get install -y gcc libx11-dev libxt-dev libxext-dev libfontconfig1-dev
+      - name: Build plan9port
+        if: steps.cache-plan9port.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get install -y plan9port
-          echo "$PLAN9/bin" >> $GITHUB_PATH
+          git clone --depth=1 https://github.com/9fans/plan9port $PLAN9
+          cd $PLAN9
+          ./INSTALL
+      - name: Add plan9port to PATH
+        run: echo "$PLAN9/bin" >> $GITHUB_PATH
       - name: Run tests
         run: mk test
 
@@ -28,9 +40,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install plan9port
+      - name: Cache plan9port
+        id: cache-plan9port
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9 }}
+          key: plan9port-${{ runner.os }}-v1
+      - name: Install plan9port build dependencies
+        run: sudo apt-get install -y gcc libx11-dev libxt-dev libxext-dev libfontconfig1-dev
+      - name: Build plan9port
+        if: steps.cache-plan9port.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get install -y plan9port
-          echo "$PLAN9/bin" >> $GITHUB_PATH
+          git clone --depth=1 https://github.com/9fans/plan9port $PLAN9
+          cd $PLAN9
+          ./INSTALL
+      - name: Add plan9port to PATH
+        run: echo "$PLAN9/bin" >> $GITHUB_PATH
       - name: Build o.thread
         run: mk o.thread
