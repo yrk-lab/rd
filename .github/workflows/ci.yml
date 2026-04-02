@@ -124,10 +124,6 @@ jobs:
           cd sys/src/cmd/unix/u9fs
           make CFLAGS="-g -I. -Wno-implicit-function-declaration -DBit5=2 -DRunemax=0x10FFFF"
           cp u9fs $PLAN9FRONT/u9fs
-      - name: Install QEMU and socat
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 socat
 
   build-9front:
     name: Build binary (9front)
@@ -140,6 +136,10 @@ jobs:
         with:
           path: ${{ env.PLAN9FRONT }}
           key: 9front-${{ runner.os }}-v3
+      - name: Install QEMU and socat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 socat
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Write termrc
@@ -183,6 +183,10 @@ jobs:
         with:
           path: ${{ env.PLAN9FRONT }}
           key: 9front-${{ runner.os }}-v3
+      - name: Install QEMU and socat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 socat
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Write termrc
