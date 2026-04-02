@@ -163,7 +163,7 @@ jobs:
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2' \
+            -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2 user=glenda' \
             -device qemu-xhci,id=xhci \
             -net nic,model=virtio,macaddr=00:20:91:37:33:77 \
             -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
@@ -218,7 +218,7 @@ jobs:
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2' \
+            -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2 user=glenda' \
             -device qemu-xhci,id=xhci \
             -net nic,model=virtio,macaddr=00:20:91:37:33:77 \
             -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
