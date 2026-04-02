@@ -210,3 +210,9 @@ jobs:
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
             -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200' \
+            -netdev user,id=net0 \
+            -device e1000,netdev=net0
+      - name: Check result
+        run: |
+          result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          [ "${result:-1}" -eq 0 ]
