@@ -1,0 +1,8 @@
+#!/bin/rc
+cd /rd
+mk $mktarget
+if(~ $status '')
+	echo 0 > /exitcode
+if not
+	echo 1 > /exitcode
+echo reboot > /dev/sysctl

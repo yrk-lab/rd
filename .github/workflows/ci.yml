@@ -142,18 +142,8 @@ jobs:
           sudo apt-get install -y qemu-system-x86 socat
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
-      - name: Write termrc
-        if: false
-        run: |
-          cat > $PLAN9FRONT/root/rc/bin/termrc << 'EOF'
-          cd /rd
-          mk
-          if(~ $status '')
-            echo 0 > /exitcode
-          if not
-            echo 1 > /exitcode
-          echo reboot > /dev/sysctl
-          EOF
+      - name: Copy termrc.local into 9front root
+        run: cp $GITHUB_WORKSPACE/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
       - name: Prepare u9fs user database in 9front root
         run: |
           mkdir -p $PLAN9FRONT/root/etc
@@ -208,18 +198,8 @@ jobs:
           sudo apt-get install -y qemu-system-x86 socat
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
-      - name: Write termrc
-        if: false
-        run: |
-          cat > $PLAN9FRONT/root/rc/bin/termrc << 'EOF'
-          cd /rd
-          mk test
-          if(~ $status '')
-            echo 0 > /exitcode
-          if not
-            echo 1 > /exitcode
-          echo reboot > /dev/sysctl
-          EOF
+      - name: Copy termrc.local into 9front root
+        run: cp $GITHUB_WORKSPACE/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
       - name: Prepare u9fs user database in 9front root
         run: |
           mkdir -p $PLAN9FRONT/root/etc
@@ -237,7 +217,7 @@ jobs:
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1' \
+            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1 mktarget=runtest' \
             -drive if=ide,format=raw,file=/tmp/disk.img \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
