@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  PLAN9: /opt/plan9port
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    name: Set up plan9port
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache plan9port
+        id: cache-plan9port
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9 }}
+          key: plan9port-${{ runner.os }}-v1
+      - name: Install plan9port build dependencies
+        run: sudo apt-get install -y gcc libx11-dev libxt-dev libxext-dev libfontconfig1-dev
+      - name: Build plan9port
+        if: steps.cache-plan9port.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth=1 https://github.com/9fans/plan9port $PLAN9
+          cd $PLAN9
+          ./INSTALL
+
+  test:
+    name: Run tests
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore plan9port cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9 }}
+          key: plan9port-${{ runner.os }}-v1
+      - name: Add plan9port to PATH
+        run: echo "$PLAN9/bin" >> $GITHUB_PATH
+      - name: Run tests
+        run: mk test
+
+  build:
+    name: Build binary
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore plan9port cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9 }}
+          key: plan9port-${{ runner.os }}-v1
+      - name: Add plan9port to PATH
+        run: echo "$PLAN9/bin" >> $GITHUB_PATH
+      - name: Build o.thread
+        run: mk o.thread
