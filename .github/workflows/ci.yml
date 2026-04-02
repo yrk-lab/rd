@@ -172,7 +172,7 @@ jobs:
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device virtio-net-pci,netdev=net0,mac=00:20:91:37:33:77 \
             -object filter-dump,id=dump0,netdev=net0,file=/tmp/build-net.pcap \
-            2>&1 | tee /tmp/build-console.log || true
+            || true
       - name: Upload diagnostics (build)
         if: always()
         uses: actions/upload-artifact@v4
@@ -180,7 +180,6 @@ jobs:
           name: build-9front-diag
           path: |
             /tmp/build-net.pcap
-            /tmp/build-console.log
             ${{ env.PLAN9FRONT }}/u9fs-build.log
           if-no-files-found: ignore
       - name: Check result
@@ -235,7 +234,7 @@ jobs:
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device virtio-net-pci,netdev=net0,mac=00:20:91:37:33:77 \
             -object filter-dump,id=dump0,netdev=net0,file=/tmp/test-net.pcap \
-            2>&1 | tee /tmp/test-console.log || true
+            || true
       - name: Upload diagnostics (test)
         if: always()
         uses: actions/upload-artifact@v4
@@ -243,7 +242,6 @@ jobs:
           name: test-9front-diag
           path: |
             /tmp/test-net.pcap
-            /tmp/test-console.log
             ${{ env.PLAN9FRONT }}/u9fs-test.log
           if-no-files-found: ignore
       - name: Check result
