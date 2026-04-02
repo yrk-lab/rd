@@ -137,7 +137,7 @@ jobs:
           path: ${{ env.PLAN9FRONT }}
           key: 9front-${{ runner.os }}-v3
       - name: Install QEMU and socat
-        run: sudo apt-get install -y qemu-system-x86 socat
+        run: sudo apt-get install -y --fix-missing qemu-system-x86 socat
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Write termrc
@@ -181,7 +181,7 @@ jobs:
           path: ${{ env.PLAN9FRONT }}
           key: 9front-${{ runner.os }}-v3
       - name: Install QEMU and socat
-        run: sudo apt-get install -y qemu-system-x86 socat
+        run: sudo apt-get install -y --fix-missing qemu-system-x86 socat
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Write termrc
