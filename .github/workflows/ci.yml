@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install plan9port
+        run: sudo apt-get install -y plan9port
+      - name: Run tests
+        run: |
+          export PLAN9=/usr/lib/plan9
+          export PATH=$PLAN9/bin:$PATH
+          mk test
+
+  build:
+    name: Build binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install plan9port
+        run: sudo apt-get install -y plan9port
+      - name: Build o.thread
+        run: |
+          export PLAN9=/usr/lib/plan9
+          export PATH=$PLAN9/bin:$PATH
+          mk o.thread
