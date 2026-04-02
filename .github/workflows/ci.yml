@@ -160,16 +160,15 @@ jobs:
           getent group "$(id -gn)" >> $PLAN9FRONT/root/etc/group
       - name: Boot 9front VM and build
         run: |
-          socat TCP4-LISTEN:9999,fork,reuseaddr \
-            EXEC:"sudo $PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-build.log -a none -u $(id -un) $PLAN9FRONT/root" &
-          for i in $(seq 30); do nc -z localhost 9999 2>/dev/null && break || sleep 0.5; done
+          sudo socat TCP4-LISTEN:564,fork,reuseaddr \
+            EXEC:"$PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-build.log -a none -u $(id -un) $PLAN9FRONT/root" &
+          for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
           timeout 300 qemu-system-x86_64 \
             -nographic \
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2 user=glenda' \
-            -device qemu-xhci,id=xhci \
+            -append 'nobootprompt=tcp fs=10.0.2.2 console=0 b115200 user=glenda' \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device virtio-net-pci,netdev=net0,mac=00:20:91:37:33:77 \
             -object filter-dump,id=dump0,netdev=net0,file=/tmp/build-net.pcap
@@ -222,16 +221,15 @@ jobs:
           getent group "$(id -gn)" >> $PLAN9FRONT/root/etc/group
       - name: Boot 9front VM and test
         run: |
-          socat TCP4-LISTEN:9999,fork,reuseaddr \
-            EXEC:"sudo $PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-test.log -a none -u $(id -un) $PLAN9FRONT/root" &
-          for i in $(seq 30); do nc -z localhost 9999 2>/dev/null && break || sleep 0.5; done
+          sudo socat TCP4-LISTEN:564,fork,reuseaddr \
+            EXEC:"$PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-test.log -a none -u $(id -un) $PLAN9FRONT/root" &
+          for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
           timeout 300 qemu-system-x86_64 \
             -nographic \
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2 user=glenda' \
-            -device qemu-xhci,id=xhci \
+            -append 'nobootprompt=tcp fs=10.0.2.2 console=0 b115200 user=glenda' \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device virtio-net-pci,netdev=net0,mac=00:20:91:37:33:77 \
             -object filter-dump,id=dump0,netdev=net0,file=/tmp/test-net.pcap
