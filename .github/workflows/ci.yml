@@ -73,7 +73,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v2
+          key: 9front-${{ runner.os }}-v3
       - name: Install dependencies
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: sudo apt-get install -y build-essential
@@ -114,11 +114,15 @@ jobs:
           chmod -R u+w $PLAN9FRONT/root/
           cp $PLAN9FRONT/root/amd64/9pc64 $PLAN9FRONT/9pc64
           sudo umount /mnt/9front
-      - name: Build u9fs from plan9port source
+      - name: Build u9fs from plan9foundation source
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
-          cd $PLAN9/src/cmd/u9fs
-          $PLAN9/bin/mk
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/plan9foundation/plan9 /tmp/plan9-src
+          cd /tmp/plan9-src
+          git sparse-checkout set sys/src/cmd/unix/u9fs
+          cd sys/src/cmd/unix/u9fs
+          make CFLAGS="-g -I. -Wno-implicit-function-declaration -DBit5=2 -DRunemax=0x10FFFF"
           cp u9fs $PLAN9FRONT/u9fs
 
   build-9front:
@@ -131,7 +135,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v2
+          key: 9front-${{ runner.os }}-v3
       - name: Install QEMU
         run: sudo apt-get install -y qemu-system-x86
       - name: Copy source into 9front root
@@ -174,7 +178,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v2
+          key: 9front-${{ runner.os }}-v3
       - name: Install QEMU
         run: sudo apt-get install -y qemu-system-x86
       - name: Copy source into 9front root
