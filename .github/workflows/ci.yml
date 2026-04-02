@@ -161,6 +161,7 @@ jobs:
           getent group "$(id -gn)" >> $PLAN9FRONT/root/etc/group
       - name: Boot 9front VM and build
         run: |
+          qemu-system-x86_64 -version
           dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
             EXEC:"$PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-build.log -a none -u $(id -un) $PLAN9FRONT/root" &
@@ -226,6 +227,7 @@ jobs:
           getent group "$(id -gn)" >> $PLAN9FRONT/root/etc/group
       - name: Boot 9front VM and test
         run: |
+          qemu-system-x86_64 -version
           dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
             EXEC:"$PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-test.log -a none -u $(id -un) $PLAN9FRONT/root" &
