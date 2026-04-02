@@ -178,7 +178,7 @@ jobs:
           if-no-files-found: ignore
       - name: Check result
         run: |
-          result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          result=$(cat $PLAN9FRONT/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
           [ "${result:-1}" -eq 0 ]
 
   test-9front:
@@ -234,5 +234,5 @@ jobs:
           if-no-files-found: ignore
       - name: Check result
         run: |
-          result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          result=$(cat $PLAN9FRONT/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
           [ "${result:-1}" -eq 0 ]
