@@ -180,7 +180,7 @@ testputmsgmactivated(void){
 	int n;
 	char *s, *want;
 	uchar buf[1042];
-	Msg m;
+	Msg m = {0};
 
 	m.type = Mactivated;
 	m.originid = 0xAAAA;
