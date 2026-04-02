@@ -143,6 +143,7 @@ jobs:
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Write termrc
+        if: false
         run: |
           cat > $PLAN9FRONT/root/rc/bin/termrc << 'EOF'
           cd /rd
@@ -205,6 +206,7 @@ jobs:
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Write termrc
+        if: false
         run: |
           cat > $PLAN9FRONT/root/rc/bin/termrc << 'EOF'
           cd /rd
