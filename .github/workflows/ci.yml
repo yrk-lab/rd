@@ -80,8 +80,7 @@ jobs:
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
           mkdir -p $PLAN9FRONT
-          curl -fL -o /tmp/9front.iso.gz 'http://9front.org/iso/9front.iso.gz'
-          gunzip /tmp/9front.iso.gz
+          curl -fL -o /tmp/9front.iso 'http://9front.org/iso/9front.iso'
       - name: Extract 9front root and kernel
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
