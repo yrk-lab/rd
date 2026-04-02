@@ -100,7 +100,8 @@ jobs:
       - name: Extract 9front root and kernel
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
-          mkdir -p /mnt/9front $PLAN9FRONT/root
+          sudo mkdir -p /mnt/9front
+          mkdir -p $PLAN9FRONT/root
           sudo mount -o loop,ro /tmp/9front.iso /mnt/9front
           cp -a /mnt/9front/. $PLAN9FRONT/root/
           chmod -R u+w $PLAN9FRONT/root/
