@@ -165,8 +165,8 @@ jobs:
             -kernel $PLAN9FRONT/9pc64 \
             -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200' \
             -device qemu-xhci,id=xhci \
-            -net nic,model=virtio \
-            -net user
+            -net nic,model=virtio,macaddr=00:20:91:37:33:77 \
+            -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15
       - name: Check result
         run: |
           result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
@@ -212,8 +212,8 @@ jobs:
             -kernel $PLAN9FRONT/9pc64 \
             -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200' \
             -device qemu-xhci,id=xhci \
-            -net nic,model=virtio \
-            -net user
+            -net nic,model=virtio,macaddr=00:20:91:37:33:77 \
+            -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15
       - name: Check result
         run: |
           result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
