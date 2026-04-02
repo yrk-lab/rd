@@ -6,6 +6,7 @@ on:
 
 env:
   PLAN9: /opt/plan9port
+  PLAN9FRONT: /opt/9front
 
 permissions:
   contents: read
@@ -61,3 +62,125 @@ jobs:
         run: echo "$PLAN9/bin" >> $GITHUB_PATH
       - name: Build o.thread
         run: mk o.thread
+
+  setup-9front:
+    name: Set up 9front
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache 9front
+        id: cache-9front
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9FRONT }}
+          key: 9front-${{ runner.os }}-v1
+      - name: Install dependencies
+        if: steps.cache-9front.outputs.cache-hit != 'true'
+        run: sudo apt-get install -y build-essential
+      - name: Download 9front nightly ISO
+        if: steps.cache-9front.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $PLAN9FRONT
+          curl -fL -o /tmp/9front.iso.gz 'http://9front.org/iso/9front.iso.gz'
+          gunzip /tmp/9front.iso.gz
+      - name: Extract 9front root and kernel
+        if: steps.cache-9front.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /mnt/9front $PLAN9FRONT/root
+          sudo mount -o loop,ro /tmp/9front.iso /mnt/9front
+          cp -a /mnt/9front/. $PLAN9FRONT/root/
+          chmod -R u+w $PLAN9FRONT/root/
+          cp $PLAN9FRONT/root/amd64/pc64 $PLAN9FRONT/pc64
+          sudo umount /mnt/9front
+      - name: Build u9fs
+        if: steps.cache-9front.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth=1 https://github.com/9fans/u9fs /tmp/u9fs-src
+          cd /tmp/u9fs-src
+          make
+          cp u9fs $PLAN9FRONT/u9fs
+
+  build-9front:
+    name: Build binary (9front)
+    needs: setup-9front
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore 9front cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9FRONT }}
+          key: 9front-${{ runner.os }}-v1
+      - name: Install QEMU
+        run: sudo apt-get install -y qemu-system-x86
+      - name: Copy source into 9front root
+        run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
+      - name: Write termrc
+        run: |
+          cat > $PLAN9FRONT/root/rc/bin/termrc << 'EOF'
+          cd /rd
+          mk
+          if(~ $status '')
+            echo 0 > /exitcode
+          if not
+            echo 1 > /exitcode
+          echo reboot > /dev/sysctl
+          EOF
+      - name: Boot 9front VM and build
+        run: |
+          $PLAN9FRONT/u9fs -u $(id -un) -r $PLAN9FRONT/root tcp!*!9999 &
+          for i in $(seq 10); do nc -z localhost 9999 2>/dev/null && break || sleep 0.5; done
+          timeout 300 qemu-system-x86_64 \
+            -nographic \
+            -no-reboot \
+            -m 1G \
+            -kernel $PLAN9FRONT/pc64 \
+            -append 'nobootprompt=tcp!10.0.2.2!9999' \
+            -netdev user,id=net0 \
+            -device e1000,netdev=net0
+      - name: Check result
+        run: |
+          result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          [ "${result:-1}" -eq 0 ]
+
+  test-9front:
+    name: Run tests (9front)
+    needs: setup-9front
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore 9front cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9FRONT }}
+          key: 9front-${{ runner.os }}-v1
+      - name: Install QEMU
+        run: sudo apt-get install -y qemu-system-x86
+      - name: Copy source into 9front root
+        run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
+      - name: Write termrc
+        run: |
+          cat > $PLAN9FRONT/root/rc/bin/termrc << 'EOF'
+          cd /rd
+          mk test
+          if(~ $status '')
+            echo 0 > /exitcode
+          if not
+            echo 1 > /exitcode
+          echo reboot > /dev/sysctl
+          EOF
+      - name: Boot 9front VM and test
+        run: |
+          $PLAN9FRONT/u9fs -u $(id -un) -r $PLAN9FRONT/root tcp!*!9999 &
+          for i in $(seq 10); do nc -z localhost 9999 2>/dev/null && break || sleep 0.5; done
+          timeout 300 qemu-system-x86_64 \
+            -nographic \
+            -no-reboot \
+            -m 1G \
+            -kernel $PLAN9FRONT/pc64 \
+            -append 'nobootprompt=tcp!10.0.2.2!9999' \
+            -netdev user,id=net0 \
+            -device e1000,netdev=net0
+      - name: Check result
+        run: |
+          result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          [ "${result:-1}" -eq 0 ]
