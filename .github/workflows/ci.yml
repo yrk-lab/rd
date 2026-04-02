@@ -114,9 +114,12 @@ jobs:
           chmod -R u+w $PLAN9FRONT/root/
           cp $PLAN9FRONT/root/amd64/9pc64 $PLAN9FRONT/9pc64
           sudo umount /mnt/9front
-      - name: Copy u9fs from plan9port
+      - name: Build u9fs from plan9port source
         if: steps.cache-9front.outputs.cache-hit != 'true'
-        run: cp $PLAN9/bin/u9fs $PLAN9FRONT/u9fs
+        run: |
+          cd $PLAN9/src/cmd/u9fs
+          $PLAN9/bin/mk
+          cp u9fs $PLAN9FRONT/u9fs
 
   build-9front:
     name: Build binary (9front)
