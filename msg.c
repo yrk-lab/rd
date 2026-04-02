@@ -93,8 +93,9 @@ txprep(uchar* buf, int nb, int ndata, int chanid, int mcsuid, int secflags)
 		sysfatal("putmsdr: %r");
 	p += 8;
 
-	if(shdsize > 0)
+	if(shdsize > 0){
 		PLONG(p, secflags);
+	}
 	return p + shdsize;
 }
 
