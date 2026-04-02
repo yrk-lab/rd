@@ -143,7 +143,7 @@ jobs:
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Copy termrc.local into 9front root
-        run: cp $GITHUB_WORKSPACE/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
+        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
       - name: Prepare u9fs user database in 9front root
         run: |
           mkdir -p $PLAN9FRONT/root/etc
@@ -199,7 +199,7 @@ jobs:
       - name: Copy source into 9front root
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Copy termrc.local into 9front root
-        run: cp $GITHUB_WORKSPACE/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
+        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
       - name: Prepare u9fs user database in 9front root
         run: |
           mkdir -p $PLAN9FRONT/root/etc
