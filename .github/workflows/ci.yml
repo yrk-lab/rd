@@ -166,7 +166,15 @@ jobs:
             -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2' \
             -device qemu-xhci,id=xhci \
             -net nic,model=virtio,macaddr=00:20:91:37:33:77 \
-            -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15
+            -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
+            -net dump,file=/tmp/build-net.pcap
+      - name: Upload network capture (build)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-9front-netdump
+          path: /tmp/build-net.pcap
+          if-no-files-found: ignore
       - name: Check result
         run: |
           result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
@@ -213,7 +221,15 @@ jobs:
             -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200 ip=10.0.2.15 ipmask=255.255.255.0 ipgw=10.0.2.2' \
             -device qemu-xhci,id=xhci \
             -net nic,model=virtio,macaddr=00:20:91:37:33:77 \
-            -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15
+            -net user,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
+            -net dump,file=/tmp/test-net.pcap
+      - name: Upload network capture (test)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-9front-netdump
+          path: /tmp/test-net.pcap
+          if-no-files-found: ignore
       - name: Check result
         run: |
           result=$(cat $PLAN9FRONT/root/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
