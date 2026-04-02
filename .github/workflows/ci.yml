@@ -170,7 +170,7 @@ jobs:
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1' \
+            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1' \
             -drive if=ide,format=raw,file=/tmp/disk.img \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
@@ -235,7 +235,7 @@ jobs:
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1' \
+            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1' \
             -drive if=ide,format=raw,file=/tmp/disk.img \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
