@@ -164,6 +164,7 @@ jobs:
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
             -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200' \
+            -device qemu-xhci,id=xhci \
             -net nic,model=virtio \
             -net user
       - name: Check result
@@ -210,6 +211,7 @@ jobs:
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
             -append 'nobootprompt=tcp!10.0.2.2!9999 console=0 b115200' \
+            -device qemu-xhci,id=xhci \
             -net nic,model=virtio \
             -net user
       - name: Check result
