@@ -169,9 +169,9 @@ jobs:
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda' \
+            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1' \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device virtio-net-pci,netdev=net0,mac=00:20:91:37:33:77 \
+            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
             -object filter-dump,id=dump0,netdev=net0,file=/tmp/build-net.pcap \
             || true
       - name: Upload diagnostics (build)
@@ -232,9 +232,9 @@ jobs:
             -no-reboot \
             -m 1G \
             -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda' \
+            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1' \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device virtio-net-pci,netdev=net0,mac=00:20:91:37:33:77 \
+            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
             -object filter-dump,id=dump0,netdev=net0,file=/tmp/test-net.pcap \
             || true
       - name: Upload diagnostics (test)
