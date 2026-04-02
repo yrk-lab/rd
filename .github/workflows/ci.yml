@@ -65,6 +65,7 @@ jobs:
 
   setup-9front:
     name: Set up 9front
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - name: Cache 9front
@@ -76,6 +77,12 @@ jobs:
       - name: Install dependencies
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: sudo apt-get install -y build-essential
+      - name: Restore plan9port cache
+        if: steps.cache-9front.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9 }}
+          key: plan9port-${{ runner.os }}-v1
       - name: Download 9front ISO
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
@@ -105,15 +112,11 @@ jobs:
           sudo mount -o loop,ro /tmp/9front.iso /mnt/9front
           cp -a /mnt/9front/. $PLAN9FRONT/root/
           chmod -R u+w $PLAN9FRONT/root/
-          cp $PLAN9FRONT/root/amd64/9pc64 $PLAN9FRONT/pc64
+          cp $PLAN9FRONT/root/amd64/9pc64 $PLAN9FRONT/9pc64
           sudo umount /mnt/9front
-      - name: Build u9fs
+      - name: Copy u9fs from plan9port
         if: steps.cache-9front.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth=1 https://github.com/9fans/u9fs /tmp/u9fs-src
-          cd /tmp/u9fs-src
-          make
-          cp u9fs $PLAN9FRONT/u9fs
+        run: cp $PLAN9/bin/u9fs $PLAN9FRONT/u9fs
 
   build-9front:
     name: Build binary (9front)
@@ -149,7 +152,7 @@ jobs:
             -nographic \
             -no-reboot \
             -m 1G \
-            -kernel $PLAN9FRONT/pc64 \
+            -kernel $PLAN9FRONT/9pc64 \
             -append 'nobootprompt=tcp!10.0.2.2!9999' \
             -netdev user,id=net0 \
             -device e1000,netdev=net0
@@ -192,7 +195,7 @@ jobs:
             -nographic \
             -no-reboot \
             -m 1G \
-            -kernel $PLAN9FRONT/pc64 \
+            -kernel $PLAN9FRONT/9pc64 \
             -append 'nobootprompt=tcp!10.0.2.2!9999' \
             -netdev user,id=net0 \
             -device e1000,netdev=net0
