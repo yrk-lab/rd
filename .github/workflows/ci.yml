@@ -159,8 +159,8 @@ jobs:
           make CFLAGS="-g -I. -Wno-implicit-function-declaration -DBit5=2 -DRunemax=0x10FFFF"
           cp u9fs $PLAN9LEGACY/u9fs
 
-  run-plan9:
-    name: Build and test (${{ matrix.variant }})
+  build-plan9:
+    name: Build (${{ matrix.variant }})
     needs: [setup-9front, setup-9legacy]
     runs-on: ubuntu-latest
     strategy:
@@ -226,12 +226,57 @@ jobs:
         run: |
           result=$(cat $P9DIR/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
           [ "${result:-1}" -eq 0 ]
-      - name: Reset for test run
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rd-build-${{ matrix.variant }}
+          path: ${{ matrix.plan9dir }}/root/rd/
+
+  test-plan9:
+    name: Test (${{ matrix.variant }})
+    needs: [build-plan9]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: 9front
+            plan9dir: /opt/9front
+            cache_key: 9front-v3
+            kernel: 9pc64
+            cfgmethod: append
+          - variant: 9legacy
+            plan9dir: /opt/9legacy
+            cache_key: 9legacy-v2
+            kernel: 9k10f.elf
+            cfgmethod: ini
+    env:
+      P9DIR: ${{ matrix.plan9dir }}
+    steps:
+      - name: Restore cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ matrix.plan9dir }}
+          key: ${{ matrix.cache_key }}-${{ runner.os }}
+      - name: Install QEMU and socat
         run: |
-          sudo pkill socat || true
-          rm -f $P9DIR/root/rd/exitcode
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 socat
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: rd-build-${{ matrix.variant }}
+          path: ${{ matrix.plan9dir }}/root/rd/
+      - name: Copy termrc.local into root
+        run: cp $P9DIR/root/rd/.github/termrc.local $P9DIR/root/rc/bin/termrc.local
+      - name: Prepare u9fs user database
+        run: |
+          mkdir -p $P9DIR/root/etc
+          getent passwd "$(id -un)" >> $P9DIR/root/etc/passwd
+          getent group "$(id -gn)" >> $P9DIR/root/etc/group
       - name: Boot VM and test
         run: |
+          rm -f $P9DIR/root/rd/exitcode
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
             EXEC:"$P9DIR/u9fs -a none -u $(id -un) $P9DIR/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
