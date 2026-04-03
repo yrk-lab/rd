@@ -7,6 +7,7 @@ on:
 env:
   PLAN9: /opt/plan9port
   PLAN9FRONT: /opt/9front
+  PLAN9LEGACY: /opt/9legacy
 
 permissions:
   contents: read
@@ -235,4 +236,157 @@ jobs:
       - name: Check result
         run: |
           result=$(cat $PLAN9FRONT/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          [ "${result:-1}" -eq 0 ]
+
+  setup-9legacy:
+    name: Set up 9legacy
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache 9legacy
+        id: cache-9legacy
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9LEGACY }}
+          key: 9legacy-${{ runner.os }}-v1
+      - name: Install dependencies
+        if: steps.cache-9legacy.outputs.cache-hit != 'true'
+        run: sudo apt-get install -y build-essential
+      - name: Download 9legacy ISO
+        if: steps.cache-9legacy.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $PLAN9LEGACY
+          curl -fL -o /tmp/9legacy.iso.bz2 https://9legacy.org/download/go/9legacy.iso.bz2
+          bunzip2 /tmp/9legacy.iso.bz2
+      - name: Extract 9legacy root and kernel
+        if: steps.cache-9legacy.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /mnt/9legacy
+          mkdir -p $PLAN9LEGACY/root
+          sudo mount -o loop,ro /tmp/9legacy.iso /mnt/9legacy
+          cp -a /mnt/9legacy/. $PLAN9LEGACY/root/
+          chmod -R u+w $PLAN9LEGACY/root/
+          cp $PLAN9LEGACY/root/386/9pc $PLAN9LEGACY/9pc
+          sudo umount /mnt/9legacy
+      - name: Build u9fs from plan9foundation source
+        if: steps.cache-9legacy.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/plan9foundation/plan9 /tmp/plan9-src-9legacy
+          cd /tmp/plan9-src-9legacy
+          git sparse-checkout set sys/src/cmd/unix/u9fs
+          cd sys/src/cmd/unix/u9fs
+          make CFLAGS="-g -I. -Wno-implicit-function-declaration -DBit5=2 -DRunemax=0x10FFFF"
+          cp u9fs $PLAN9LEGACY/u9fs
+
+  build-9legacy:
+    name: Build binary (9legacy)
+    needs: setup-9legacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore 9legacy cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9LEGACY }}
+          key: 9legacy-${{ runner.os }}-v1
+      - name: Install QEMU and socat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 socat
+      - name: Copy source into 9legacy root
+        run: cp -r $GITHUB_WORKSPACE $PLAN9LEGACY/root/rd
+      - name: Copy termrc.local into 9legacy root
+        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9LEGACY/root/rc/bin/termrc.local
+      - name: Prepare u9fs user database in 9legacy root
+        run: |
+          mkdir -p $PLAN9LEGACY/root/etc
+          getent passwd "$(id -un)" >> $PLAN9LEGACY/root/etc/passwd
+          getent group "$(id -gn)" >> $PLAN9LEGACY/root/etc/group
+      - name: Boot 9legacy VM and build
+        run: |
+          qemu-system-i386 -version
+          dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
+          sudo socat TCP4-LISTEN:564,fork,reuseaddr \
+            EXEC:"$PLAN9LEGACY/u9fs -l $PLAN9LEGACY/u9fs-build.log -a none -u $(id -un) $PLAN9LEGACY/root" &
+          for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
+          timeout 300 qemu-system-i386 \
+            -nographic \
+            -no-reboot \
+            -m 1G \
+            -kernel $PLAN9LEGACY/9pc \
+            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1' \
+            -drive if=ide,format=raw,file=/tmp/disk.img \
+            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
+            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
+            -object filter-dump,id=dump0,netdev=net0,file=/tmp/build-9legacy-net.pcap \
+            || true
+      - name: Upload diagnostics (build)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-9legacy-diag
+          path: |
+            /tmp/build-9legacy-net.pcap
+            ${{ env.PLAN9LEGACY }}/u9fs-build.log
+          if-no-files-found: ignore
+      - name: Check result
+        run: |
+          result=$(cat $PLAN9LEGACY/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          [ "${result:-1}" -eq 0 ]
+
+  test-9legacy:
+    name: Run tests (9legacy)
+    needs: setup-9legacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore 9legacy cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAN9LEGACY }}
+          key: 9legacy-${{ runner.os }}-v1
+      - name: Install QEMU and socat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 socat
+      - name: Copy source into 9legacy root
+        run: cp -r $GITHUB_WORKSPACE $PLAN9LEGACY/root/rd
+      - name: Copy termrc.local into 9legacy root
+        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9LEGACY/root/rc/bin/termrc.local
+      - name: Prepare u9fs user database in 9legacy root
+        run: |
+          mkdir -p $PLAN9LEGACY/root/etc
+          getent passwd "$(id -un)" >> $PLAN9LEGACY/root/etc/passwd
+          getent group "$(id -gn)" >> $PLAN9LEGACY/root/etc/group
+      - name: Boot 9legacy VM and test
+        run: |
+          qemu-system-i386 -version
+          dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
+          sudo socat TCP4-LISTEN:564,fork,reuseaddr \
+            EXEC:"$PLAN9LEGACY/u9fs -l $PLAN9LEGACY/u9fs-test.log -a none -u $(id -un) $PLAN9LEGACY/root" &
+          for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
+          timeout 300 qemu-system-i386 \
+            -nographic \
+            -no-reboot \
+            -m 1G \
+            -kernel $PLAN9LEGACY/9pc \
+            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1 mktarget=runtest' \
+            -drive if=ide,format=raw,file=/tmp/disk.img \
+            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
+            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
+            -object filter-dump,id=dump0,netdev=net0,file=/tmp/test-9legacy-net.pcap \
+            || true
+      - name: Upload diagnostics (test)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-9legacy-diag
+          path: |
+            /tmp/test-9legacy-net.pcap
+            ${{ env.PLAN9LEGACY }}/u9fs-test.log
+          if-no-files-found: ignore
+      - name: Check result
+        run: |
+          result=$(cat $PLAN9LEGACY/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
           [ "${result:-1}" -eq 0 ]
