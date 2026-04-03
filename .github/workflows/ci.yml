@@ -167,7 +167,7 @@ jobs:
       fail-fast: false
       matrix:
         variant: [9front, 9legacy]
-        mktarget: [all, runtest]
+        mktarget: [all, test]
         include:
           - variant: 9front
             plan9dir: /opt/9front
@@ -181,7 +181,7 @@ jobs:
             cfgmethod: ini
           - mktarget: all
             jobname: Build
-          - mktarget: runtest
+          - mktarget: test
             jobname: Test
     env:
       P9DIR: ${{ matrix.plan9dir }}
