@@ -166,7 +166,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [9front, 9legacy]
+        variant: [9front, 9legacy, 9legacy32]
         mktarget: [all, test]
         include:
           - variant: 9front
@@ -179,6 +179,11 @@ jobs:
             cache_key: 9legacy-v2
             kernel: 9k10f.elf
             cfgmethod: ini
+          - variant: 9legacy32
+            plan9dir: /opt/9legacy
+            cache_key: 9legacy-v2
+            kernel: /386/9pc
+            cfgmethod: pxe
           - mktarget: all
             jobname: Build
           - mktarget: test
@@ -212,14 +217,16 @@ jobs:
             EXEC:"$P9DIR/u9fs -a none -u $(id -un) $P9DIR/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
           if [ '${{ matrix.cfgmethod }}' = 'append' ]; then
-            cfgargs=(-append "nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda mktarget=${{ matrix.mktarget }}")
+            cfgargs=(-kernel $P9DIR/${{ matrix.kernel }} -append "nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda mktarget=${{ matrix.mktarget }}")
+          elif [ '${{ matrix.cfgmethod }}' = 'pxe' ]; then
+            printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\nmktarget=${{ matrix.mktarget }}\nbootfile=ether0!${{ matrix.kernel }}\n*nomp=1\n' > $P9DIR/root/cfg/pxe/002091373377
+            cfgargs=(-boot n -device e1000,netdev=net0,mac=00:20:91:37:33:77 -netdev user,id=net0,tftp=$P9DIR/root/,bootfile=/386/9boot)
           else
             printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\nmktarget=${{ matrix.mktarget }}\n' > /tmp/plan9.ini
-            cfgargs=(-device loader,addr=0x1240,file=/tmp/plan9.ini)
+            cfgargs=(-kernel $P9DIR/${{ matrix.kernel }} -device loader,addr=0x1240,file=/tmp/plan9.ini)
           fi
           timeout 300 qemu-system-x86_64 \
             -nographic -no-reboot -m 1G \
-            -kernel $P9DIR/${{ matrix.kernel }} \
             "${cfgargs[@]}" \
             || true
       - name: Check result
