@@ -214,8 +214,6 @@ jobs:
             -nographic -no-reboot -m 1G \
             -kernel $P9DIR/${{ matrix.kernel }} \
             "${cfgargs[@]}" \
-            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
             || true
       - name: Check build result
         run: |
@@ -283,8 +281,6 @@ jobs:
             -nographic -no-reboot -m 1G \
             -kernel $P9DIR/${{ matrix.kernel }} \
             "${cfgargs[@]}" \
-            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
             || true
       - name: Check test result
         run: |
