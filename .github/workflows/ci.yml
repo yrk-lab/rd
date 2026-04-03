@@ -256,7 +256,7 @@ jobs:
         if: steps.cache-9legacy.outputs.cache-hit != 'true'
         run: |
           mkdir -p $PLAN9LEGACY
-          curl -fL -o /tmp/9legacy.iso.bz2 https://9legacy.org/download/go/9legacy.iso.bz2
+          curl -fL -o /tmp/9legacy.iso.bz2 http://9legacy.org/download/go/9legacy.iso.bz2
           bunzip2 /tmp/9legacy.iso.bz2
       - name: Extract 9legacy root and kernel
         if: steps.cache-9legacy.outputs.cache-hit != 'true'
