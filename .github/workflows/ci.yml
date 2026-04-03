@@ -66,7 +66,6 @@ jobs:
 
   setup-9front:
     name: Set up 9front
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - name: Cache 9front
@@ -74,16 +73,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v3
+          key: 9front-v3-${{ runner.os }}
       - name: Install dependencies
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: sudo apt-get install -y build-essential
-      - name: Restore plan9port cache
-        if: steps.cache-9front.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PLAN9 }}
-          key: plan9port-${{ runner.os }}-v1
       - name: Download 9front ISO
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
@@ -126,121 +119,8 @@ jobs:
           make CFLAGS="-g -I. -Wno-implicit-function-declaration -DBit5=2 -DRunemax=0x10FFFF"
           cp u9fs $PLAN9FRONT/u9fs
 
-  build-9front:
-    name: Build binary (9front)
-    needs: setup-9front
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Restore 9front cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v3
-      - name: Install QEMU and socat
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 socat
-      - name: Copy source into 9front root
-        run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
-      - name: Copy termrc.local into 9front root
-        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
-      - name: Prepare u9fs user database in 9front root
-        run: |
-          mkdir -p $PLAN9FRONT/root/etc
-          getent passwd "$(id -un)" >> $PLAN9FRONT/root/etc/passwd
-          getent group "$(id -gn)" >> $PLAN9FRONT/root/etc/group
-      - name: Boot 9front VM and build
-        run: |
-          qemu-system-x86_64 -version
-          dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
-          sudo socat TCP4-LISTEN:564,fork,reuseaddr \
-            EXEC:"$PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-build.log -a none -u $(id -un) $PLAN9FRONT/root" &
-          for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
-          timeout 300 qemu-system-x86_64 \
-            -nographic \
-            -no-reboot \
-            -m 1G \
-            -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1' \
-            -drive if=ide,format=raw,file=/tmp/disk.img \
-            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-            -object filter-dump,id=dump0,netdev=net0,file=/tmp/build-net.pcap \
-            || true
-      - name: Upload diagnostics (build)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-9front-diag
-          path: |
-            /tmp/build-net.pcap
-            ${{ env.PLAN9FRONT }}/u9fs-build.log
-          if-no-files-found: ignore
-      - name: Check result
-        run: |
-          result=$(cat $PLAN9FRONT/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
-          [ "${result:-1}" -eq 0 ]
-
-  test-9front:
-    name: Run tests (9front)
-    needs: setup-9front
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Restore 9front cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PLAN9FRONT }}
-          key: 9front-${{ runner.os }}-v3
-      - name: Install QEMU and socat
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 socat
-      - name: Copy source into 9front root
-        run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
-      - name: Copy termrc.local into 9front root
-        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
-      - name: Prepare u9fs user database in 9front root
-        run: |
-          mkdir -p $PLAN9FRONT/root/etc
-          getent passwd "$(id -un)" >> $PLAN9FRONT/root/etc/passwd
-          getent group "$(id -gn)" >> $PLAN9FRONT/root/etc/group
-      - name: Boot 9front VM and test
-        run: |
-          qemu-system-x86_64 -version
-          dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
-          sudo socat TCP4-LISTEN:564,fork,reuseaddr \
-            EXEC:"$PLAN9FRONT/u9fs -l $PLAN9FRONT/u9fs-test.log -a none -u $(id -un) $PLAN9FRONT/root" &
-          for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
-          timeout 300 qemu-system-x86_64 \
-            -nographic \
-            -no-reboot \
-            -m 1G \
-            -kernel $PLAN9FRONT/9pc64 \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1 mktarget=runtest' \
-            -drive if=ide,format=raw,file=/tmp/disk.img \
-            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-            -object filter-dump,id=dump0,netdev=net0,file=/tmp/test-net.pcap \
-            || true
-      - name: Upload diagnostics (test)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-9front-diag
-          path: |
-            /tmp/test-net.pcap
-            ${{ env.PLAN9FRONT }}/u9fs-test.log
-          if-no-files-found: ignore
-      - name: Check result
-        run: |
-          result=$(cat $PLAN9FRONT/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
-          [ "${result:-1}" -eq 0 ]
-
   setup-9legacy:
     name: Set up 9legacy
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - name: Cache 9legacy
@@ -248,7 +128,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.PLAN9LEGACY }}
-          key: 9legacy-${{ runner.os }}-v2
+          key: 9legacy-v2-${{ runner.os }}
       - name: Install dependencies
         if: steps.cache-9legacy.outputs.cache-hit != 'true'
         run: sudo apt-get install -y build-essential
@@ -279,116 +159,76 @@ jobs:
           make CFLAGS="-g -I. -Wno-implicit-function-declaration -DBit5=2 -DRunemax=0x10FFFF"
           cp u9fs $PLAN9LEGACY/u9fs
 
-  build-9legacy:
-    name: Build binary (9legacy)
-    needs: setup-9legacy
+  run-plan9:
+    name: ${{ matrix.jobname }} (${{ matrix.variant }})
+    needs: [setup-9front, setup-9legacy]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [9front, 9legacy]
+        mktarget: [all, test]
+        include:
+          - variant: 9front
+            plan9dir: /opt/9front
+            cache_key: 9front-v3
+            kernel: 9pc64
+            cfgmethod: append
+          - variant: 9legacy
+            plan9dir: /opt/9legacy
+            cache_key: 9legacy-v2
+            kernel: 9k10f.elf
+            cfgmethod: ini
+          - mktarget: all
+            jobname: Build
+          - mktarget: test
+            jobname: Test
+    env:
+      P9DIR: ${{ matrix.plan9dir }}
     steps:
       - uses: actions/checkout@v4
-      - name: Restore 9legacy cache
+      - name: Restore cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.PLAN9LEGACY }}
-          key: 9legacy-${{ runner.os }}-v2
+          path: ${{ matrix.plan9dir }}
+          key: ${{ matrix.cache_key }}-${{ runner.os }}
       - name: Install QEMU and socat
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 socat
-      - name: Copy source into 9legacy root
-        run: cp -r $GITHUB_WORKSPACE $PLAN9LEGACY/root/rd
-      - name: Copy termrc.local into 9legacy root
-        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9LEGACY/root/rc/bin/termrc.local
-      - name: Prepare u9fs user database in 9legacy root
+      - name: Copy source into root
+        run: cp -r $GITHUB_WORKSPACE $P9DIR/root/rd
+      - name: Copy termrc.local into root
+        run: cp $GITHUB_WORKSPACE/.github/termrc.local $P9DIR/root/rc/bin/termrc.local
+      - name: Prepare u9fs user database
         run: |
-          mkdir -p $PLAN9LEGACY/root/etc
-          getent passwd "$(id -un)" >> $PLAN9LEGACY/root/etc/passwd
-          getent group "$(id -gn)" >> $PLAN9LEGACY/root/etc/group
-      - name: Boot 9legacy VM and build
+          mkdir -p $P9DIR/root/etc
+          getent passwd "$(id -un)" >> $P9DIR/root/etc/passwd
+          getent group "$(id -gn)" >> $P9DIR/root/etc/group
+      - name: Boot VM
         run: |
-          qemu-system-x86_64 -version
-          dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
+          rm -f $P9DIR/root/rd/exitcode
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
-            EXEC:"$PLAN9LEGACY/u9fs -l $PLAN9LEGACY/u9fs-build.log -a none -u $(id -un) $PLAN9LEGACY/root" &
+            EXEC:"$P9DIR/u9fs -a none -u $(id -un) $P9DIR/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
-          printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\n' > /tmp/plan9.ini
+          if [ '${{ matrix.cfgmethod }}' = 'append' ]; then
+            cfgargs=(-append "nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda mktarget=${{ matrix.mktarget }}")
+          else
+            printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\nmktarget=${{ matrix.mktarget }}\n' > /tmp/plan9.ini
+            cfgargs=(-device loader,addr=0x1240,file=/tmp/plan9.ini)
+          fi
           timeout 300 qemu-system-x86_64 \
-            -nographic \
-            -no-reboot \
-            -m 1G \
-            -kernel $PLAN9LEGACY/9k10f.elf \
-            -device loader,addr=0x1240,file=/tmp/plan9.ini \
-            -drive if=ide,format=raw,file=/tmp/disk.img \
-            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-            -object filter-dump,id=dump0,netdev=net0,file=/tmp/build-9legacy-net.pcap \
+            -nographic -no-reboot -m 1G \
+            -kernel $P9DIR/${{ matrix.kernel }} \
+            "${cfgargs[@]}" \
             || true
-      - name: Upload diagnostics (build)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-9legacy-diag
-          path: |
-            /tmp/build-9legacy-net.pcap
-            ${{ env.PLAN9LEGACY }}/u9fs-build.log
-          if-no-files-found: ignore
       - name: Check result
         run: |
-          result=$(cat $PLAN9LEGACY/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
+          result=$(cat $P9DIR/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
           [ "${result:-1}" -eq 0 ]
-
-  test-9legacy:
-    name: Run tests (9legacy)
-    needs: setup-9legacy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Restore 9legacy cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PLAN9LEGACY }}
-          key: 9legacy-${{ runner.os }}-v2
-      - name: Install QEMU and socat
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 socat
-      - name: Copy source into 9legacy root
-        run: cp -r $GITHUB_WORKSPACE $PLAN9LEGACY/root/rd
-      - name: Copy termrc.local into 9legacy root
-        run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9LEGACY/root/rc/bin/termrc.local
-      - name: Prepare u9fs user database in 9legacy root
-        run: |
-          mkdir -p $PLAN9LEGACY/root/etc
-          getent passwd "$(id -un)" >> $PLAN9LEGACY/root/etc/passwd
-          getent group "$(id -gn)" >> $PLAN9LEGACY/root/etc/group
-      - name: Boot 9legacy VM and test
-        run: |
-          qemu-system-x86_64 -version
-          dd if=/dev/zero of=/tmp/disk.img bs=1M count=64 2>/dev/null
-          sudo socat TCP4-LISTEN:564,fork,reuseaddr \
-            EXEC:"$PLAN9LEGACY/u9fs -l $PLAN9LEGACY/u9fs-test.log -a none -u $(id -un) $PLAN9LEGACY/root" &
-          for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
-          printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\nmktarget=runtest\n' > /tmp/plan9.ini
-          timeout 300 qemu-system-x86_64 \
-            -nographic \
-            -no-reboot \
-            -m 1G \
-            -kernel $PLAN9LEGACY/9k10f.elf \
-            -device loader,addr=0x1240,file=/tmp/plan9.ini \
-            -drive if=ide,format=raw,file=/tmp/disk.img \
-            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-            -object filter-dump,id=dump0,netdev=net0,file=/tmp/test-9legacy-net.pcap \
-            || true
-      - name: Upload diagnostics (test)
-        if: always()
+      - name: Upload build artifacts
+        if: matrix.mktarget == 'all'
         uses: actions/upload-artifact@v4
         with:
-          name: test-9legacy-diag
-          path: |
-            /tmp/test-9legacy-net.pcap
-            ${{ env.PLAN9LEGACY }}/u9fs-test.log
-          if-no-files-found: ignore
-      - name: Check result
-        run: |
-          result=$(cat $PLAN9LEGACY/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
-          [ "${result:-1}" -eq 0 ]
+          name: rd-build-${{ matrix.variant }}
+          path: ${{ matrix.plan9dir }}/root/rd/
