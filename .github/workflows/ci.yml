@@ -166,35 +166,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        variant: [9front, 9legacy]
+        mktarget: [all, runtest]
         include:
           - variant: 9front
             plan9dir: /opt/9front
             cache_key: 9front-v3
             kernel: 9pc64
             cfgmethod: append
-            jobname: Build
-            mktarget: ''
           - variant: 9legacy
             plan9dir: /opt/9legacy
             cache_key: 9legacy-v2
             kernel: 9k10f.elf
             cfgmethod: ini
+          - mktarget: all
             jobname: Build
-            mktarget: ''
-          - variant: 9front
-            plan9dir: /opt/9front
-            cache_key: 9front-v3
-            kernel: 9pc64
-            cfgmethod: append
+          - mktarget: runtest
             jobname: Test
-            mktarget: runtest
-          - variant: 9legacy
-            plan9dir: /opt/9legacy
-            cache_key: 9legacy-v2
-            kernel: 9k10f.elf
-            cfgmethod: ini
-            jobname: Test
-            mktarget: runtest
     env:
       P9DIR: ${{ matrix.plan9dir }}
     steps:
@@ -223,14 +211,10 @@ jobs:
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
             EXEC:"$P9DIR/u9fs -a none -u $(id -un) $P9DIR/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
-          mktarget='${{ matrix.mktarget }}'
           if [ '${{ matrix.cfgmethod }}' = 'append' ]; then
-            extra=''
-            [ -n "$mktarget" ] && extra=" mktarget=$mktarget"
-            cfgargs=(-append "nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1$extra")
+            cfgargs=(-append "nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1 mktarget=${{ matrix.mktarget }}")
           else
-            printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\n' > /tmp/plan9.ini
-            [ -n "$mktarget" ] && printf 'mktarget=%s\n' "$mktarget" >> /tmp/plan9.ini
+            printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\nmktarget=${{ matrix.mktarget }}\n' > /tmp/plan9.ini
             cfgargs=(-device loader,addr=0x1240,file=/tmp/plan9.ini)
           fi
           timeout 300 qemu-system-x86_64 \
@@ -243,7 +227,7 @@ jobs:
           result=$(cat $P9DIR/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
           [ "${result:-1}" -eq 0 ]
       - name: Upload build artifacts
-        if: matrix.mktarget == ''
+        if: matrix.mktarget == 'all'
         uses: actions/upload-artifact@v4
         with:
           name: rd-build-${{ matrix.variant }}
