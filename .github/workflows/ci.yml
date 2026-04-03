@@ -229,7 +229,7 @@ jobs:
 
   test-plan9:
     name: Test (${{ matrix.variant }})
-    needs: [build-plan9]
+    needs: [setup-9front, setup-9legacy]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -258,11 +258,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 socat
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: rd-build-${{ matrix.variant }}
-          path: ${{ matrix.plan9dir }}/root/rd/
+      - name: Copy source into root
+        run: cp -r $GITHUB_WORKSPACE $P9DIR/root/rd
       - name: Copy termrc.local into root
         run: cp $GITHUB_WORKSPACE/.github/termrc.local $P9DIR/root/rc/bin/termrc.local
       - name: Prepare u9fs user database
