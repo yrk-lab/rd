@@ -205,23 +205,18 @@ jobs:
             EXEC:"$P9DIR/u9fs -a none -u $(id -un) $P9DIR/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
           if [ '${{ matrix.cfgmethod }}' = 'append' ]; then
-            timeout 300 qemu-system-x86_64 \
-              -nographic -no-reboot -m 1G \
-              -kernel $P9DIR/${{ matrix.kernel }} \
-              -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1' \
-              -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-              -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-              || true
+            cfgargs=(-append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1')
           else
             printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\n' > /tmp/plan9.ini
-            timeout 300 qemu-system-x86_64 \
-              -nographic -no-reboot -m 1G \
-              -kernel $P9DIR/${{ matrix.kernel }} \
-              -device loader,addr=0x1240,file=/tmp/plan9.ini \
-              -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-              -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-              || true
+            cfgargs=(-device loader,addr=0x1240,file=/tmp/plan9.ini)
           fi
+          timeout 300 qemu-system-x86_64 \
+            -nographic -no-reboot -m 1G \
+            -kernel $P9DIR/${{ matrix.kernel }} \
+            "${cfgargs[@]}" \
+            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
+            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
+            || true
       - name: Check build result
         run: |
           result=$(cat $P9DIR/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
@@ -253,6 +248,7 @@ jobs:
     env:
       P9DIR: ${{ matrix.plan9dir }}
     steps:
+      - uses: actions/checkout@v4
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -268,7 +264,7 @@ jobs:
           name: rd-build-${{ matrix.variant }}
           path: ${{ matrix.plan9dir }}/root/rd/
       - name: Copy termrc.local into root
-        run: cp $P9DIR/root/rd/.github/termrc.local $P9DIR/root/rc/bin/termrc.local
+        run: cp $GITHUB_WORKSPACE/.github/termrc.local $P9DIR/root/rc/bin/termrc.local
       - name: Prepare u9fs user database
         run: |
           mkdir -p $P9DIR/root/etc
@@ -281,23 +277,18 @@ jobs:
             EXEC:"$P9DIR/u9fs -a none -u $(id -un) $P9DIR/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
           if [ '${{ matrix.cfgmethod }}' = 'append' ]; then
-            timeout 300 qemu-system-x86_64 \
-              -nographic -no-reboot -m 1G \
-              -kernel $P9DIR/${{ matrix.kernel }} \
-              -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1 mktarget=runtest' \
-              -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-              -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-              || true
+            cfgargs=(-append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1 mktarget=runtest')
           else
             printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\nmktarget=runtest\n' > /tmp/plan9.ini
-            timeout 300 qemu-system-x86_64 \
-              -nographic -no-reboot -m 1G \
-              -kernel $P9DIR/${{ matrix.kernel }} \
-              -device loader,addr=0x1240,file=/tmp/plan9.ini \
-              -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
-              -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
-              || true
+            cfgargs=(-device loader,addr=0x1240,file=/tmp/plan9.ini)
           fi
+          timeout 300 qemu-system-x86_64 \
+            -nographic -no-reboot -m 1G \
+            -kernel $P9DIR/${{ matrix.kernel }} \
+            "${cfgargs[@]}" \
+            -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
+            -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
+            || true
       - name: Check test result
         run: |
           result=$(cat $P9DIR/root/rd/exitcode 2>/dev/null | head -1 | tr -d '[:space:]')
