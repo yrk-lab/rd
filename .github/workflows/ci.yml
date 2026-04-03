@@ -310,12 +310,13 @@ jobs:
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
             EXEC:"$PLAN9LEGACY/u9fs -l $PLAN9LEGACY/u9fs-build.log -a none -u $(id -un) $PLAN9LEGACY/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
+          printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\n' > /tmp/plan9.ini
           timeout 300 qemu-system-x86_64 \
             -nographic \
             -no-reboot \
             -m 1G \
             -kernel $PLAN9LEGACY/9k10f.elf \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1' \
+            -device loader,addr=0x1240,file=/tmp/plan9.ini \
             -drive if=ide,format=raw,file=/tmp/disk.img \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
@@ -366,12 +367,13 @@ jobs:
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
             EXEC:"$PLAN9LEGACY/u9fs -l $PLAN9LEGACY/u9fs-test.log -a none -u $(id -un) $PLAN9LEGACY/root" &
           for i in $(seq 30); do nc -z localhost 564 2>/dev/null && break || sleep 0.5; done
+          printf 'nobootprompt=tcp\nfs=10.0.2.2\nauth=10.0.2.2\nconsole=0 b115200\nuser=glenda\n*nousbprobe=1\n*nomp=1\nmktarget=runtest\n' > /tmp/plan9.ini
           timeout 300 qemu-system-x86_64 \
             -nographic \
             -no-reboot \
             -m 1G \
             -kernel $PLAN9LEGACY/9k10f.elf \
-            -append 'nobootprompt=tcp fs=10.0.2.2 auth=10.0.2.2 console=0 b115200 user=glenda *nousbprobe=1 *nomp=1 mktarget=runtest' \
+            -device loader,addr=0x1240,file=/tmp/plan9.ini \
             -drive if=ide,format=raw,file=/tmp/disk.img \
             -netdev user,id=net0,net=10.0.2.0/24,dhcpstart=10.0.2.15 \
             -device e1000,netdev=net0,mac=00:20:91:37:33:77 \
