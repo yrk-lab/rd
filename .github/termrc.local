@@ -5,4 +5,4 @@ if(~ $status '')
 	echo 0 > /rd/exitcode
 if not
 	echo 1 > /rd/exitcode
-fshalt
+echo reboot > /dev/reboot
