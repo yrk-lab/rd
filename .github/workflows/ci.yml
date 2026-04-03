@@ -138,6 +138,11 @@ jobs:
         run: cp -r $GITHUB_WORKSPACE $PLAN9FRONT/root/rd
       - name: Copy termrc.local into 9front root
         run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9FRONT/root/rc/bin/termrc.local
+      - name: Prepare u9fs user database in 9front root
+        run: |
+          mkdir -p $PLAN9FRONT/root/etc
+          getent passwd "$(id -un)" >> $PLAN9FRONT/root/etc/passwd
+          getent group "$(id -gn)" >> $PLAN9FRONT/root/etc/group
       - name: Boot 9front VM and build
         run: |
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
@@ -247,6 +252,11 @@ jobs:
         run: cp -r $GITHUB_WORKSPACE $PLAN9LEGACY/root/rd
       - name: Copy termrc.local into 9legacy root
         run: cp $GITHUB_WORKSPACE/.github/termrc.local $PLAN9LEGACY/root/rc/bin/termrc.local
+      - name: Prepare u9fs user database in 9legacy root
+        run: |
+          mkdir -p $PLAN9LEGACY/root/etc
+          getent passwd "$(id -un)" >> $PLAN9LEGACY/root/etc/passwd
+          getent group "$(id -gn)" >> $PLAN9LEGACY/root/etc/group
       - name: Boot 9legacy VM and build
         run: |
           sudo socat TCP4-LISTEN:564,fork,reuseaddr \
