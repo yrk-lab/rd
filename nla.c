@@ -454,7 +454,7 @@ nlahandshake(Rdp *c)
 		user, sizeof(user)-1,
 		ntresp, sizeof(ntresp),
 		auth_getkey,
-		"proto=mschap service=rdp %s", c->keyspec != nil ? c->keyspec : "");
+		"proto=mschap service=rdp %s", c->keyspec);
 	if(nresp < 0){
 		werrstr("factotum mschap: %r");
 		return -1;
