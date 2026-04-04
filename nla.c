@@ -13,7 +13,9 @@
  */
 #include <u.h>
 #include <libc.h>
+#ifndef NLATESTONLY
 #include <auth.h>
+#endif
 #include "dat.h"
 #include "fns.h"
 
@@ -423,6 +425,7 @@ mkntlmauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLe
  *          (proto=mschap) to get the NT response from factotum.
  * Phase C: send NTLM Authenticate with the NT response wrapped in TSRequest.
  */
+#ifndef NLATESTONLY
 int
 nlahandshake(Rdp *c)
 {
@@ -482,3 +485,4 @@ nlahandshake(Rdp *c)
 
 	return 0;
 }
+#endif /* NLATESTONLY */
