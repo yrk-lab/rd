@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <auth.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -46,6 +47,74 @@ x224handshake(Rdp* c)
 	if(starttls(c) < 0)
 		return -1;
 	if(c->nla && nlahandshake(c) < 0)
+		return -1;
+
+	return 0;
+}
+
+/*
+ * nlahandshake performs the CredSSP/NTLM authentication exchange after TLS.
+ *
+ * Phase A: send NTLM Negotiate wrapped in TSRequest.
+ * Phase B: receive server's NTLM Challenge in TSRequest; call auth_respond
+ *          (proto=mschap) to get the NT response from factotum.
+ * Phase C: send NTLM Authenticate with the NT response wrapped in TSRequest.
+ */
+int
+nlahandshake(Rdp *c)
+{
+	uchar ntlmnego[64], tsreqbuf[4096], ntlmauth[640];
+	uchar challenge[8], ntresp[64];
+	char user[256];
+	uchar *ntlmp;
+	int n, ntlmlen, nresp;
+
+	/* Phase A: NTLM Negotiate */
+	n = mkntlmnego(ntlmnego, sizeof ntlmnego);
+	if(n < 0)
+		return -1;
+	if(writetsreq(c->fd, ntlmnego, n) < 0)
+		return -1;
+
+	/* Phase B: NTLM Challenge */
+	n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
+	if(n < 0)
+		return -1;
+	if(gettsreq(tsreqbuf, n, &ntlmp, &ntlmlen) < 0)
+		return -1;
+	if(getntlmchal(ntlmp, ntlmlen, challenge) < 0)
+		return -1;
+
+	/* Ask factotum to compute the NT response for this challenge */
+	user[0] = '\0';
+	nresp = auth_respond(challenge, 8,
+		user, sizeof(user)-1,
+		ntresp, sizeof(ntresp),
+		auth_getkey,
+		"proto=mschap service=rdp %s", c->keyspec);
+	if(nresp < 0){
+		werrstr("factotum mschap: %r");
+		return -1;
+	}
+	if(nresp < 24){ /* NTRespLen */
+		werrstr("factotum mschap: response too short (%d)", nresp);
+		return -1;
+	}
+
+	/* Use the user name returned by factotum if we don't have one */
+	if(user[0] != '\0' && c->user[0] == '\0'){
+		char *u;
+		u = strdup(user);
+		if(u == nil)
+			sysfatal("strdup: %r");
+		c->user = u;
+	}
+
+	/* Phase C: NTLM Authenticate */
+	n = mkntlmauth(ntlmauth, sizeof ntlmauth, c->user, c->windom, ntresp);
+	if(n < 0)
+		return -1;
+	if(writetsreq(c->fd, ntlmauth, n) < 0)
 		return -1;
 
 	return 0;

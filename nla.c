@@ -13,9 +13,6 @@
  */
 #include <u.h>
 #include <libc.h>
-#ifndef NLATESTONLY
-#include <auth.h>
-#endif
 #include "dat.h"
 #include "fns.h"
 
@@ -153,7 +150,7 @@ mktsreq(uchar *buf, int nbuf, uchar *ntlm, int ntlmlen)
  * Parse TSRequest and extract the NTLM token from negoTokens[0].
  * Sets *ntlmp to point into buf (not a copy) and *ntlmlenp to its length.
  */
-static int
+int
 gettsreq(uchar *buf, int n, uchar **ntlmp, int *ntlmlenp)
 {
 	uchar *p, *ep, *q;
@@ -213,7 +210,7 @@ bad:
 /*
  * Send a TSRequest wrapping the given NTLM token over the TLS fd.
  */
-static int
+int
 writetsreq(int fd, uchar *ntlm, int ntlmlen)
 {
 	uchar buf[4096];
@@ -233,7 +230,7 @@ writetsreq(int fd, uchar *ntlm, int ntlmlen)
  * Read one raw TSRequest DER blob from fd.
  * Returns the total number of bytes read, or -1 on error.
  */
-static int
+int
 readtsreq(int fd, uchar *buf, int nbuf)
 {
 	uchar hdr[4];
@@ -288,7 +285,7 @@ readtsreq(int fd, uchar *buf, int nbuf)
  * Build NTLM Negotiate message (Type 1).
  * This is a minimal negotiate with no domain or workstation names.
  */
-static int
+int
 mkntlmnego(uchar *buf, int nbuf)
 {
 	uchar *p;
@@ -309,7 +306,7 @@ mkntlmnego(uchar *buf, int nbuf)
 /*
  * Extract the 8-byte server challenge from an NTLM Challenge (Type 2) message.
  */
-static int
+int
 getntlmchal(uchar *buf, int n, uchar challenge[8])
 {
 	if(n < 32){
@@ -347,7 +344,7 @@ getntlmchal(uchar *buf, int n, uchar challenge[8])
  *
  * Payload (at offset 64): DomainName | UserName | LmResponse | NtResponse
  */
-static int
+int
 mkntlmauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
 {
 	uchar dom16[512], usr16[512];
@@ -416,73 +413,3 @@ mkntlmauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLe
 
 	return p - buf;
 }
-
-/*
- * nlahandshake performs the CredSSP/NTLM authentication exchange after TLS.
- *
- * Phase A: send NTLM Negotiate wrapped in TSRequest.
- * Phase B: receive server's NTLM Challenge in TSRequest; call auth_respond
- *          (proto=mschap) to get the NT response from factotum.
- * Phase C: send NTLM Authenticate with the NT response wrapped in TSRequest.
- */
-#ifndef NLATESTONLY
-int
-nlahandshake(Rdp *c)
-{
-	uchar ntlmnego[64], tsreqbuf[4096], ntlmauth[640];
-	uchar challenge[8], ntresp[64];
-	char user[256];
-	uchar *ntlmp;
-	int n, ntlmlen, nresp;
-
-	/* Phase A: NTLM Negotiate */
-	n = mkntlmnego(ntlmnego, sizeof ntlmnego);
-	if(n < 0)
-		return -1;
-	if(writetsreq(c->fd, ntlmnego, n) < 0)
-		return -1;
-
-	/* Phase B: NTLM Challenge */
-	n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
-	if(n < 0)
-		return -1;
-	if(gettsreq(tsreqbuf, n, &ntlmp, &ntlmlen) < 0)
-		return -1;
-	if(getntlmchal(ntlmp, ntlmlen, challenge) < 0)
-		return -1;
-
-	/* Ask factotum to compute the NT response for this challenge */
-	user[0] = '\0';
-	nresp = auth_respond(challenge, 8,
-		user, sizeof(user)-1,
-		ntresp, sizeof(ntresp),
-		auth_getkey,
-		"proto=mschap service=rdp %s", c->keyspec);
-	if(nresp < 0){
-		werrstr("factotum mschap: %r");
-		return -1;
-	}
-	if(nresp < NTRespLen){
-		werrstr("factotum mschap: response too short (%d)", nresp);
-		return -1;
-	}
-
-	/* Use the user name returned by factotum if we don't have one */
-	if(user[0] != '\0' && c->user[0] == '\0'){
-		char *u;
-		u = strdup(user);
-		if(u == nil)
-			sysfatal("strdup: %r");
-		c->user = u;
-	}
-
-	/* Phase C: NTLM Authenticate */
-	n = mkntlmauth(ntlmauth, sizeof ntlmauth, c->user, c->windom, ntresp);
-	if(n < 0)
-		return -1;
-	if(writetsreq(c->fd, ntlmauth, n) < 0)
-		return -1;
-
-	return 0;
-}
-#endif /* NLATESTONLY */

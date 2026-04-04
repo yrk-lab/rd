@@ -1,4 +1,3 @@
-#define NLATESTONLY
 #include "nla.c"
 
 int nlatests(void);
