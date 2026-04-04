@@ -21,7 +21,7 @@ x224handshake(Rdp* c)
 	Msg t, r;
 
 	t.type = Xconnect;
-	t.negproto = ProtoTLS;
+	t.negproto = c->nla ? ProtoCSSP : ProtoTLS;
 	if(writemsg(c, &t) <= 0)
 		return -1;
 	if(readmsg(c, &r) <= 0)
@@ -30,13 +30,22 @@ x224handshake(Rdp* c)
 		werrstr("X.224: protocol botch");
 		return -1;
 	}
-	if((r.negproto&ProtoTLS) == 0){
-		werrstr("server refused STARTTLS");
-		return -1;
+	if(c->nla){
+		if((r.negproto&ProtoCSSP) == 0){
+			werrstr("server refused CredSSP");
+			return -1;
+		}
+	}else{
+		if((r.negproto&ProtoTLS) == 0){
+			werrstr("server refused STARTTLS");
+			return -1;
+		}
 	}
 	c->sproto = r.negproto;
 
 	if(starttls(c) < 0)
+		return -1;
+	if(c->nla && nlahandshake(c) < 0)
 		return -1;
 
 	return 0;

@@ -50,6 +50,8 @@ struct Rdp
 	char		*passwd;		/* password for auto logon (sic) */
 	char		*shell;		/* remote shell override */
 	char		*rwd;		/* remote working directory */
+	int		nla;			/* use NLA (CredSSP/NTLM) authentication */
+	char		*keyspec;		/* factotum key spec */
 	int		xsz;			/* rfb dimensions */
 	int		ysz;			/* rfb dimensions */
 	int		depth;		/* rfb color depth */

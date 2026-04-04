@@ -21,6 +21,7 @@ OFILES=\
 	mpas.$O\
 	mppc.$O\
 	msg.$O\
+	nla.$O\
 	rd.$O\
 	rpc.$O\
 	utf16.$O\

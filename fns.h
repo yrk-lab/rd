@@ -39,6 +39,9 @@ int		istpkt(uchar*,uchar*);
 int		tptype(uchar*,uchar*);
 uchar*	tpdat(uchar*,uchar*);
 
+/* nla.c */
+int		nlahandshake(Rdp*);
+
 /* rd.c */
 void		atexitkiller(void);
 void		atexitkill(int pid);
