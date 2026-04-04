@@ -273,12 +273,20 @@ sendclientinfo(Rdp* c)
 
 	t.type = Dclientinfo;
 	t.mcsuid = c->mcsuid;
-	t.dom = c->windom;
-	t.user = c->user;
-	t.pass = c->passwd;
+	if(c->nla){
+		/* server already knows credentials from CredSSP exchange */
+		t.dom = "";
+		t.user = "";
+		t.pass = "";
+		t.dologin = 0;
+	}else{
+		t.dom = c->windom;
+		t.user = c->user;
+		t.pass = c->passwd;
+		t.dologin = (strlen(c->user) > 0);
+	}
 	t.rshell = c->shell;
 	t.rwd = c->rwd;
-	t.dologin = (strlen(c->user) > 0);
 
 	if(writemsg(c, &t) <= 0)
 		sysfatal("sendclientinfo: %r");

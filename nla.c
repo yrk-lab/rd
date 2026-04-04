@@ -39,7 +39,7 @@ enum
  */
 
 static int
-szder(int n)
+sizeder(int n)
 {
 	if(n < 0x80)
 		return 1;
@@ -108,18 +108,18 @@ mktsreq(uchar *buf, int nbuf, uchar *ntlm, int ntlmlen)
 	uchar *p;
 
 	/* OCTET STRING wrapping the NTLM token */
-	octetsz  = 1 + szder(ntlmlen) + ntlmlen;
+	octetsz  = 1 + sizeder(ntlmlen) + ntlmlen;
 	/* [0] { octet } = negoToken field inside NegoDataItem */
-	a0toksz  = 1 + szder(octetsz) + octetsz;
+	a0toksz  = 1 + sizeder(octetsz) + octetsz;
 	/* SEQUENCE { a0tok } = NegoDataItem */
-	itemsz   = 1 + szder(a0toksz) + a0toksz;
+	itemsz   = 1 + sizeder(a0toksz) + a0toksz;
 	/* SEQUENCE OF { item } = NegoData */
-	datasz   = 1 + szder(itemsz) + itemsz;
+	datasz   = 1 + sizeder(itemsz) + itemsz;
 	/* [1] { seqdata } = negoTokens field */
-	a1sz     = 1 + szder(datasz) + datasz;
+	a1sz     = 1 + sizeder(datasz) + datasz;
 	/* [0] { INTEGER CredSSPVer } = version field; always 5 bytes: a0 03 02 01 vv */
 	bodysz   = 5 + a1sz;
-	total    = 1 + szder(bodysz) + bodysz;
+	total    = 1 + sizeder(bodysz) + bodysz;
 
 	if(total > nbuf){
 		werrstr("mktsreq: buffer too small (%d < %d)", nbuf, total);
@@ -212,7 +212,7 @@ bad:
  * Send a TSRequest wrapping the given NTLM token over the TLS fd.
  */
 static int
-sendtsreq(int fd, uchar *ntlm, int ntlmlen)
+writetsreq(int fd, uchar *ntlm, int ntlmlen)
 {
 	uchar buf[4096];
 	int n;
@@ -232,7 +232,7 @@ sendtsreq(int fd, uchar *ntlm, int ntlmlen)
  * Returns the total number of bytes read, or -1 on error.
  */
 static int
-recvtsreq(int fd, uchar *buf, int nbuf)
+readtsreq(int fd, uchar *buf, int nbuf)
 {
 	uchar hdr[4];
 	int hlen, bodylen, total, n;
@@ -287,12 +287,12 @@ recvtsreq(int fd, uchar *buf, int nbuf)
  * This is a minimal negotiate with no domain or workstation names.
  */
 static int
-mkntlm1(uchar *buf, int nbuf)
+mkntlmnego(uchar *buf, int nbuf)
 {
 	uchar *p;
 
 	if(nbuf < 32){
-		werrstr("mkntlm1: buffer too small");
+		werrstr("mkntlmnego: buffer too small");
 		return -1;
 	}
 	p = buf;
@@ -308,7 +308,7 @@ mkntlm1(uchar *buf, int nbuf)
  * Extract the 8-byte server challenge from an NTLM Challenge (Type 2) message.
  */
 static int
-getntlm2(uchar *buf, int n, uchar challenge[8])
+getntlmchal(uchar *buf, int n, uchar challenge[8])
 {
 	if(n < 32){
 		werrstr("NTLM Challenge: too short (%d)", n);
@@ -346,7 +346,7 @@ getntlm2(uchar *buf, int n, uchar challenge[8])
  * Payload (at offset 64): DomainName | UserName | LmResponse | NtResponse
  */
 static int
-mkntlm3(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
+mkntlmauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
 {
 	uchar dom16[512], usr16[512];
 	int domlen, usrlen;
@@ -365,7 +365,7 @@ mkntlm3(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
 	total     = ntoff  + NTRespLen;
 
 	if(total > nbuf){
-		werrstr("mkntlm3: buffer too small (%d < %d)", nbuf, total);
+		werrstr("mkntlmauth: buffer too small (%d < %d)", nbuf, total);
 		return -1;
 	}
 
@@ -426,26 +426,26 @@ mkntlm3(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
 int
 nlahandshake(Rdp *c)
 {
-	uchar ntlm1[64], tsreqbuf[4096], ntlm3[640];
+	uchar ntlmnego[64], tsreqbuf[4096], ntlmauth[640];
 	uchar challenge[8], ntresp[64];
 	char user[256];
 	uchar *ntlmp;
 	int n, ntlmlen, nresp;
 
 	/* Phase A: NTLM Negotiate */
-	n = mkntlm1(ntlm1, sizeof ntlm1);
+	n = mkntlmnego(ntlmnego, sizeof ntlmnego);
 	if(n < 0)
 		return -1;
-	if(sendtsreq(c->fd, ntlm1, n) < 0)
+	if(writetsreq(c->fd, ntlmnego, n) < 0)
 		return -1;
 
 	/* Phase B: NTLM Challenge */
-	n = recvtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
+	n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
 	if(n < 0)
 		return -1;
 	if(gettsreq(tsreqbuf, n, &ntlmp, &ntlmlen) < 0)
 		return -1;
-	if(getntlm2(ntlmp, ntlmlen, challenge) < 0)
+	if(getntlmchal(ntlmp, ntlmlen, challenge) < 0)
 		return -1;
 
 	/* Ask factotum to compute the NT response for this challenge */
@@ -474,10 +474,10 @@ nlahandshake(Rdp *c)
 	}
 
 	/* Phase C: NTLM Authenticate */
-	n = mkntlm3(ntlm3, sizeof ntlm3, c->user, c->windom, ntresp);
+	n = mkntlmauth(ntlmauth, sizeof ntlmauth, c->user, c->windom, ntresp);
 	if(n < 0)
 		return -1;
-	if(sendtsreq(c->fd, ntlm3, n) < 0)
+	if(writetsreq(c->fd, ntlmauth, n) < 0)
 		return -1;
 
 	return 0;

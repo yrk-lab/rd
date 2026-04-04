@@ -39,12 +39,12 @@ void
 threadmain(int argc, char *argv[])
 {
 	int doauth;
-	char *server, *addr, *keyspec;
+	char *server, *addr;
 	UserPasswd *creds;
 	Rdp* c;
 
 	c = &conn;
-	keyspec = "";
+	c->keyspec = "";
 	doauth = 1;
 
 	ARGBEGIN{
@@ -55,7 +55,7 @@ threadmain(int argc, char *argv[])
 		c->nla = 1;
 		break;
 	case 'k':
-		keyspec = EARGF(usage());
+		c->keyspec = EARGF(usage());
 		break;
 	case 'T':
 		c->label = strdup(EARGF(usage()));
@@ -90,9 +90,8 @@ threadmain(int argc, char *argv[])
 		sysfatal("set $sysname\n");
 	if(c->user == nil)
 		sysfatal("set $user");
-	c->keyspec = keyspec;
 	if(doauth && !c->nla){
-		creds = auth_getuserpasswd(auth_getkey, "proto=pass role=client service=rdp %s", keyspec);
+		creds = auth_getuserpasswd(auth_getkey, "proto=pass role=client service=rdp %s", c->keyspec);
 		if(creds == nil)
 			fprint(2, "factotum: %r\n");
 		else {
