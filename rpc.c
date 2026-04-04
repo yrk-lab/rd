@@ -103,11 +103,9 @@ nlahandshake(Rdp *c)
 
 	/* Use the user name returned by factotum if we don't have one */
 	if(user[0] != '\0' && c->user[0] == '\0'){
-		char *u;
-		u = strdup(user);
-		if(u == nil)
+		c->user = strdup(user);
+		if(c->user == nil)
 			sysfatal("strdup: %r");
-		c->user = u;
 	}
 
 	/* Phase C: NTLM Authenticate */
