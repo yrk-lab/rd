@@ -454,7 +454,7 @@ nlahandshake(Rdp *c)
 		user, sizeof(user)-1,
 		ntresp, sizeof(ntresp),
 		auth_getkey,
-		"proto=mschap service=rdp %s", c->keyspec);
+		"proto=mschap service=rdp %s", c->keyspec != nil ? c->keyspec : "");
 	if(nresp < 0){
 		werrstr("factotum mschap: %r");
 		return -1;
@@ -465,8 +465,13 @@ nlahandshake(Rdp *c)
 	}
 
 	/* Use the user name returned by factotum if we don't have one */
-	if(user[0] != '\0' && c->user[0] == '\0')
-		c->user = strdup(user);
+	if(user[0] != '\0' && c->user[0] == '\0'){
+		char *u;
+		u = strdup(user);
+		if(u == nil)
+			sysfatal("strdup: %r");
+		c->user = u;
+	}
 
 	/* Phase C: NTLM Authenticate */
 	n = mkntlm3(ntlm3, sizeof ntlm3, c->user, c->windom, ntresp);
