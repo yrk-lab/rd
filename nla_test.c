@@ -3,7 +3,7 @@
 int nlatests(void);
 
 /*
- * testmkntnego: NT Negotiate (Type 1) message must be 32 bytes with
+ * testmkntnego: NTLM Negotiate (Type 1) message must be 32 bytes with
  * correct signature, message type, and negotiate flags.
  */
 static int
@@ -19,9 +19,9 @@ testmkntnego(void)
 		sysfatal("testmkntnego: bad signature");
 	if(GLONG(buf+8) != 1)
 		sysfatal("testmkntnego: want MessageType=1, got %ld", (long)GLONG(buf+8));
-	if(GLONG(buf+12) != NTFlags)
-		sysfatal("testmkntnego: want NTFlags=%ux, got %lux",
-			NTFlags, (ulong)GLONG(buf+12));
+	if(GLONG(buf+12) != NTLMFlags)
+		sysfatal("testmkntnego: want NTLMFlags=%ux, got %lux",
+			NTLMFlags, (ulong)GLONG(buf+12));
 	return 0;
 }
 
@@ -42,7 +42,7 @@ testmkntnegosmall(void)
 
 /*
  * testgetntchal: extract the 8-byte challenge from a minimal but valid
- * NT Challenge (Type 2) message.
+ * NTLM Challenge (Type 2) message.
  */
 static int
 testgetntchal(void)
@@ -124,7 +124,7 @@ testgetntchalbadtype(void)
 
 /*
  * testmktsreqhdr: verify the exact DER encoding of a TSRequest wrapping a
- * single-byte NT token (0xAA).
+ * single-byte NTLM token (0xAA).
  *
  *   30 10  SEQUENCE(16)
  *     a0 03 02 01 05  [0] version=5
@@ -200,7 +200,7 @@ testmktsreqsmallbuf(void)
 }
 
 /*
- * testmkntauth: NT Authenticate (Type 3) message must have correct
+ * testmkntauth: NTLM Authenticate (Type 3) message must have correct
  * signature, message type, and negotiate flags at the expected offsets.
  */
 static int
@@ -220,7 +220,7 @@ testmkntauth(void)
 		sysfatal("testmkntauth: bad signature");
 	if(GLONG(buf+8) != 3)
 		sysfatal("testmkntauth: want MessageType=3, got %ld", (long)GLONG(buf+8));
-	if(GLONG(buf+60) != NTFlags)
+	if(GLONG(buf+60) != NTLMFlags)
 		sysfatal("testmkntauth: bad NegotiateFlags");
 	return 0;
 }

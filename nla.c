@@ -7,9 +7,9 @@
  * with proto=mschap, so the plaintext password never leaves factotum.
  *
  * Exchange:
- *   Client → Server: TSRequest { negoTokens = [NT Negotiate] }
- *   Server → Client: TSRequest { negoTokens = [NT Challenge] }
- *   Client → Server: TSRequest { negoTokens = [NT Authenticate] }
+ *   Client → Server: TSRequest { negoTokens = [NTLM Negotiate] }
+ *   Server → Client: TSRequest { negoTokens = [NTLM Challenge] }
+ *   Client → Server: TSRequest { negoTokens = [NTLM Authenticate] }
  */
 #include <u.h>
 #include <libc.h>
@@ -18,16 +18,20 @@
 
 enum
 {
-	/* NT NegotiateFlags (subset used here) */
+	/* NTLM NegotiateFlags (subset used here) */
 	NfUnicode	= 0x00000001,	/* NTLMSSP_NEGOTIATE_UNICODE */
 	NfReqTarget	= 0x00000004,	/* NTLMSSP_REQUEST_TARGET */
-	NfNT		= 0x00000200,	/* NTLMSSP_NEGOTIATE_NTLM */
+	NfNTLM		= 0x00000200,	/* NTLMSSP_NEGOTIATE_NTLM */
 	NfAlwaysSign	= 0x00008000,	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
 
-	NTFlags		= NfUnicode | NfReqTarget | NfNT | NfAlwaysSign,
+	NTLMFlags	= NfUnicode | NfReqTarget | NfNTLM | NfAlwaysSign,
 
-	/* NT response size (NTLMv1) */
+	/* NTLM response size (NTLMv1) */
 	NTRespLen	= 24,
+
+	/* ASN.1 Universal tags (BER/DER) */
+	TagOStr		= 4,	/* OCTET STRING */
+	TagSeq		= 16,	/* SEQUENCE / SEQUENCE OF */
 
 	/* CredSSP TSRequest context-specific field tags (gbtag returns 5-bit tag number) */
 	TSSnegoTokens	= 1,	/* TSRequest [1] negoTokens field */
@@ -64,7 +68,7 @@ putder(uchar *p, int n)
 }
 
 /*
- * Encode TSRequest { version=CredSSPVer, negoTokens=[{negoToken=nt}] }
+ * Encode TSRequest { version=CredSSPVer, negoTokens=[{negoToken=ntlm}] }
  *
  * ASN.1:
  *   TSRequest ::= SEQUENCE {
@@ -79,7 +83,7 @@ mktsreq(uchar *buf, int nbuf, uchar *tok, int toklen)
 	int octetsz, a0toksz, itemsz, datasz, a1sz, bodysz, total;
 	uchar *p;
 
-	/* OCTET STRING wrapping the NT token */
+	/* OCTET STRING wrapping the NTLM token */
 	octetsz  = 1 + sizeder(toklen) + toklen;
 	/* [0] { octet } = negoToken field inside NegoDataItem */
 	a0toksz  = 1 + sizeder(octetsz) + octetsz;
@@ -120,7 +124,7 @@ mktsreq(uchar *buf, int nbuf, uchar *tok, int toklen)
 }
 
 /*
- * Parse TSRequest and return a pointer to the NT token in negoTokens[0].
+ * Parse TSRequest and return a pointer to the NTLM token in negoTokens[0].
  * Writes the token length to *ntlenp. Returns nil on error.
  */
 uchar*
@@ -144,21 +148,20 @@ gettsreq(uchar *buf, int n, int *ntlenp)
 			|| (q = gblen(q, ep, &len)) == nil)
 			goto bad;
 		if(tag == TSSnegoTokens){
-			p = q;
-			ep = p + len;
+			/* NegoData SEQUENCE OF */
+			if((p = gbtag(q, ep, &tag)) == nil || tag != TagSeq
+				|| (p = gblen(p, ep, &len)) == nil)
+				goto bad;
+			/* NegoDataItem SEQUENCE */
 			if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
 				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
-			ep = p + len;
-			if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
-				|| (p = gblen(p, ep, &len)) == nil)
-				goto bad;
-			ep = p + len;
+			/* negoToken [0] */
 			if((p = gbtag(p, ep, &tag)) == nil || tag != TSSnegoToken
 				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
-			ep = p + len;
-			if((p = gbtag(p, ep, &tag)) == nil || tag != TagOctetString
+			/* OCTET STRING */
+			if((p = gbtag(p, ep, &tag)) == nil || tag != TagOStr
 				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
 			*ntlenp = len;
@@ -172,7 +175,7 @@ bad:
 }
 
 /*
- * Send a TSRequest wrapping the given NT token over the TLS fd.
+ * Send a TSRequest wrapping the given NTLM token over the TLS fd.
  */
 int
 writetsreq(int fd, uchar *tok, int toklen)
@@ -246,7 +249,7 @@ readtsreq(int fd, uchar *buf, int nbuf)
 }
 
 /*
- * Build NT Negotiate message (Type 1).
+ * Build NTLM Negotiate message (Type 1).
  * This is a minimal negotiate with no domain or workstation names.
  */
 int
@@ -261,28 +264,28 @@ mkntnego(uchar *buf, int nbuf)
 	p = buf;
 	memmove(p, "NTLMSSP\0", 8);	p += 8;
 	PLONG(p, 1);			p += 4;		/* MessageType */
-	PLONG(p, NTFlags);		p += 4;		/* NegotiateFlags */
+	PLONG(p, NTLMFlags);		p += 4;		/* NegotiateFlags */
 	memset(p, 0, 8);		p += 8;		/* DomainNameFields (empty) */
 	memset(p, 0, 8);		p += 8;		/* WorkstationFields (empty) */
 	return p - buf;
 }
 
 /*
- * Extract the 8-byte server challenge from an NT Challenge (Type 2) message.
+ * Extract the 8-byte server challenge from an NTLM Challenge (Type 2) message.
  */
 int
 getntchal(uchar challenge[8], uchar *buf, int n)
 {
 	if(n < 32){
-		werrstr("NT Challenge: too short (%d)", n);
+		werrstr("NTLM Challenge: too short (%d)", n);
 		return -1;
 	}
 	if(memcmp(buf, "NTLMSSP\0", 8) != 0){
-		werrstr("NT Challenge: bad signature");
+		werrstr("NTLM Challenge: bad signature");
 		return -1;
 	}
 	if(GLONG(buf+8) != 2){
-		werrstr("NT Challenge: bad MessageType (%ld)", (long)GLONG(buf+8));
+		werrstr("NTLM Challenge: bad MessageType (%ld)", (long)GLONG(buf+8));
 		return -1;
 	}
 	memmove(challenge, buf+24, 8);
@@ -348,7 +351,7 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	PLONG(p, ntoff+NTRespLen);  p += 4;
 
 	/* NegotiateFlags */
-	PLONG(p, NTFlags);  p += 4;
+	PLONG(p, NTLMFlags);  p += 4;
 
 	/* payload */
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */
