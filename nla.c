@@ -29,6 +29,10 @@ enum
 	/* NT response size (NTLMv1) */
 	NTRespLen	= 24,
 
+	/* CredSSP TSRequest context-specific field tags (gbtag returns 5-bit tag number) */
+	TSSnegoTokens	= 1,	/* TSRequest [1] negoTokens field */
+	TSSnegoToken	= 0,	/* NegoDataItem [0] negoToken field */
+
 	/* CredSSP version advertised in TSRequest */
 	CredSSPVer	= 5,
 };
@@ -139,7 +143,7 @@ gettsreq(uchar *buf, int n, int *ntlenp)
 		if((q = gbtag(p, ep, &tag)) == nil
 			|| (q = gblen(q, ep, &len)) == nil)
 			goto bad;
-		if(tag == 1){
+		if(tag == TSSnegoTokens){
 			p = q;
 			ep = p + len;
 			if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
@@ -150,7 +154,7 @@ gettsreq(uchar *buf, int n, int *ntlenp)
 				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
 			ep = p + len;
-			if((p = gbtag(p, ep, &tag)) == nil || tag != 0
+			if((p = gbtag(p, ep, &tag)) == nil || tag != TSSnegoToken
 				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
 			ep = p + len;
