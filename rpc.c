@@ -52,37 +52,30 @@ x224handshake(Rdp* c)
 	return 0;
 }
 
-/*
- * nlahandshake performs the CredSSP/NTLM authentication exchange after TLS.
- *
- * Phase A: send NTLM Negotiate wrapped in TSRequest.
- * Phase B: receive server's NTLM Challenge in TSRequest; call auth_respond
- *          (proto=mschap) to get the NT response from factotum.
- * Phase C: send NTLM Authenticate with the NT response wrapped in TSRequest.
- */
 int
 nlahandshake(Rdp *c)
 {
-	uchar ntlmnego[64], tsreqbuf[4096], ntlmauth[640];
+	uchar ntnego[64], tsreqbuf[4096], ntauth[640];
 	uchar challenge[8], ntresp[64];
 	char user[256];
-	uchar *ntlmp;
-	int n, ntlmlen, nresp;
+	uchar *ntp;
+	int n, ntlen, nresp;
 
-	/* Phase A: NTLM Negotiate */
-	n = mkntlmnego(ntlmnego, sizeof ntlmnego);
+	/* Phase A: NT Negotiate */
+	n = mkntnego(ntnego, sizeof ntnego);
 	if(n < 0)
 		return -1;
-	if(writetsreq(c->fd, ntlmnego, n) < 0)
+	if(writetsreq(c->fd, ntnego, n) < 0)
 		return -1;
 
-	/* Phase B: NTLM Challenge */
+	/* Phase B: NT Challenge */
 	n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
 	if(n < 0)
 		return -1;
-	if(gettsreq(tsreqbuf, n, &ntlmp, &ntlmlen) < 0)
+	ntp = gettsreq(tsreqbuf, n, &ntlen);
+	if(ntp == nil)
 		return -1;
-	if(getntlmchal(ntlmp, ntlmlen, challenge) < 0)
+	if(getntchal(challenge, ntp, ntlen) < 0)
 		return -1;
 
 	/* Ask factotum to compute the NT response for this challenge */
@@ -108,11 +101,11 @@ nlahandshake(Rdp *c)
 			sysfatal("strdup: %r");
 	}
 
-	/* Phase C: NTLM Authenticate */
-	n = mkntlmauth(ntlmauth, sizeof ntlmauth, c->user, c->windom, ntresp);
+	/* Phase C: NT Authenticate */
+	n = mkntauth(ntauth, sizeof ntauth, c->user, c->windom, ntresp);
 	if(n < 0)
 		return -1;
-	if(writetsreq(c->fd, ntlmauth, n) < 0)
+	if(writetsreq(c->fd, ntauth, n) < 0)
 		return -1;
 
 	return 0;

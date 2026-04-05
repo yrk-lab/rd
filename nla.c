@@ -7,9 +7,9 @@
  * with proto=mschap, so the plaintext password never leaves factotum.
  *
  * Exchange:
- *   Client → Server: TSRequest { negoTokens = [NTLM Negotiate] }
- *   Server → Client: TSRequest { negoTokens = [NTLM Challenge] }
- *   Client → Server: TSRequest { negoTokens = [NTLM Authenticate] }
+ *   Client → Server: TSRequest { negoTokens = [NT Negotiate] }
+ *   Server → Client: TSRequest { negoTokens = [NT Challenge] }
+ *   Client → Server: TSRequest { negoTokens = [NT Authenticate] }
  */
 #include <u.h>
 #include <libc.h>
@@ -18,24 +18,20 @@
 
 enum
 {
-	/* NTLM NegotiateFlags (subset used here) */
+	/* NT NegotiateFlags (subset used here) */
 	NfUnicode	= 0x00000001,	/* NTLMSSP_NEGOTIATE_UNICODE */
 	NfReqTarget	= 0x00000004,	/* NTLMSSP_REQUEST_TARGET */
-	NfNTLM		= 0x00000200,	/* NTLMSSP_NEGOTIATE_NTLM */
+	NfNT		= 0x00000200,	/* NTLMSSP_NEGOTIATE_NTLM */
 	NfAlwaysSign	= 0x00008000,	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
 
-	NTLMFlags	= NfUnicode | NfReqTarget | NfNTLM | NfAlwaysSign,
+	NTFlags		= NfUnicode | NfReqTarget | NfNT | NfAlwaysSign,
 
-	/* NTLM response size (NTLMv1) */
+	/* NT response size (NTLMv1) */
 	NTRespLen	= 24,
 
 	/* CredSSP version advertised in TSRequest */
 	CredSSPVer	= 5,
 };
-
-/*
- * ASN.1 DER helpers
- */
 
 static int
 sizeder(int n)
@@ -63,35 +59,8 @@ putder(uchar *p, int n)
 	return p;
 }
 
-/* parse one TLV; returns pointer past the tag+length (i.e. to the value) */
-static uchar*
-getdertlv(uchar *p, uchar *ep, int *tag, int *len)
-{
-	if(p+2 > ep){
-		werrstr("NLA: DER short");
-		return nil;
-	}
-	*tag = *p++;
-	if(*p < 0x80){
-		*len = *p++;
-	}else if(*p == 0x81){
-		p++;
-		if(p >= ep){ werrstr("NLA: DER short"); return nil; }
-		*len = *p++;
-	}else if(*p == 0x82){
-		p++;
-		if(p+2 > ep){ werrstr("NLA: DER short"); return nil; }
-		*len = (p[0]<<8)|p[1];
-		p += 2;
-	}else{
-		werrstr("NLA: unsupported DER length form %02x", p[-1]);
-		return nil;
-	}
-	return p;
-}
-
 /*
- * Encode TSRequest { version=CredSSPVer, negoTokens=[{negoToken=ntlm}] }
+ * Encode TSRequest { version=CredSSPVer, negoTokens=[{negoToken=nt}] }
  *
  * ASN.1:
  *   TSRequest ::= SEQUENCE {
@@ -101,13 +70,13 @@ getdertlv(uchar *p, uchar *ep, int *tag, int *len)
  *   }
  */
 static int
-mktsreq(uchar *buf, int nbuf, uchar *ntlm, int ntlmlen)
+mktsreq(uchar *buf, int nbuf, uchar *tok, int toklen)
 {
 	int octetsz, a0toksz, itemsz, datasz, a1sz, bodysz, total;
 	uchar *p;
 
-	/* OCTET STRING wrapping the NTLM token */
-	octetsz  = 1 + sizeder(ntlmlen) + ntlmlen;
+	/* OCTET STRING wrapping the NT token */
+	octetsz  = 1 + sizeder(toklen) + toklen;
 	/* [0] { octet } = negoToken field inside NegoDataItem */
 	a0toksz  = 1 + sizeder(octetsz) + octetsz;
 	/* SEQUENCE { a0tok } = NegoDataItem */
@@ -139,19 +108,19 @@ mktsreq(uchar *buf, int nbuf, uchar *ntlm, int ntlmlen)
 	*p++ = 0x30; p = putder(p, a0toksz);
 	/* negoToken [0] EXPLICIT OCTET STRING */
 	*p++ = 0xa0; p = putder(p, octetsz);
-	*p++ = 0x04; p = putder(p, ntlmlen);
-	memmove(p, ntlm, ntlmlen);
-	p += ntlmlen;
+	*p++ = 0x04; p = putder(p, toklen);
+	memmove(p, tok, toklen);
+	p += toklen;
 
 	return p - buf;
 }
 
 /*
- * Parse TSRequest and extract the NTLM token from negoTokens[0].
- * Sets *ntlmp to point into buf (not a copy) and *ntlmlenp to its length.
+ * Parse TSRequest and return a pointer to the NT token in negoTokens[0].
+ * Writes the token length to *ntlenp. Returns nil on error.
  */
-int
-gettsreq(uchar *buf, int n, uchar **ntlmp, int *ntlmlenp)
+uchar*
+gettsreq(uchar *buf, int n, int *ntlenp)
 {
 	uchar *p, *ep, *q;
 	int tag, len;
@@ -160,63 +129,54 @@ gettsreq(uchar *buf, int n, uchar **ntlmp, int *ntlmlenp)
 	ep = buf + n;
 
 	/* TSRequest SEQUENCE */
-	q = getdertlv(p, ep, &tag, &len);
-	if(q == nil || tag != 0x30)
+	if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
+		|| (p = gblen(p, ep, &len)) == nil)
 		goto bad;
-	p = q;
 	ep = p + len;
 
 	/* walk SEQUENCE body looking for [1] negoTokens */
 	while(p < ep){
-		q = getdertlv(p, ep, &tag, &len);
-		if(q == nil)
+		if((q = gbtag(p, ep, &tag)) == nil
+			|| (q = gblen(q, ep, &len)) == nil)
 			goto bad;
-		if(tag == 0xa1){
-			/* [1] NegoData SEQUENCE OF */
+		if(tag == 1){
 			p = q;
 			ep = p + len;
-			q = getdertlv(p, ep, &tag, &len);
-			if(q == nil || tag != 0x30)
+			if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
+				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
-			p = q;
 			ep = p + len;
-			/* NegoDataItem SEQUENCE */
-			q = getdertlv(p, ep, &tag, &len);
-			if(q == nil || tag != 0x30)
+			if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
+				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
-			p = q;
 			ep = p + len;
-			/* negoToken [0] */
-			q = getdertlv(p, ep, &tag, &len);
-			if(q == nil || tag != 0xa0)
+			if((p = gbtag(p, ep, &tag)) == nil || tag != 0
+				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
-			p = q;
 			ep = p + len;
-			/* OCTET STRING */
-			q = getdertlv(p, ep, &tag, &len);
-			if(q == nil || tag != 0x04)
+			if((p = gbtag(p, ep, &tag)) == nil || tag != TagOctetString
+				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
-			*ntlmp = q;
-			*ntlmlenp = len;
-			return 0;
+			*ntlenp = len;
+			return p;
 		}
 		p = q + len;
 	}
 bad:
 	werrstr("NLA: TSRequest parse error");
-	return -1;
+	return nil;
 }
 
 /*
- * Send a TSRequest wrapping the given NTLM token over the TLS fd.
+ * Send a TSRequest wrapping the given NT token over the TLS fd.
  */
 int
-writetsreq(int fd, uchar *ntlm, int ntlmlen)
+writetsreq(int fd, uchar *tok, int toklen)
 {
 	uchar buf[4096];
 	int n;
 
-	n = mktsreq(buf, sizeof buf, ntlm, ntlmlen);
+	n = mktsreq(buf, sizeof buf, tok, toklen);
 	if(n < 0)
 		return -1;
 	if(write(fd, buf, n) != n){
@@ -282,70 +242,51 @@ readtsreq(int fd, uchar *buf, int nbuf)
 }
 
 /*
- * Build NTLM Negotiate message (Type 1).
+ * Build NT Negotiate message (Type 1).
  * This is a minimal negotiate with no domain or workstation names.
  */
 int
-mkntlmnego(uchar *buf, int nbuf)
+mkntnego(uchar *buf, int nbuf)
 {
 	uchar *p;
 
 	if(nbuf < 32){
-		werrstr("mkntlmnego: buffer too small");
+		werrstr("mkntnego: buffer too small");
 		return -1;
 	}
 	p = buf;
 	memmove(p, "NTLMSSP\0", 8);	p += 8;
 	PLONG(p, 1);			p += 4;		/* MessageType */
-	PLONG(p, NTLMFlags);		p += 4;		/* NegotiateFlags */
+	PLONG(p, NTFlags);		p += 4;		/* NegotiateFlags */
 	memset(p, 0, 8);		p += 8;		/* DomainNameFields (empty) */
 	memset(p, 0, 8);		p += 8;		/* WorkstationFields (empty) */
 	return p - buf;
 }
 
 /*
- * Extract the 8-byte server challenge from an NTLM Challenge (Type 2) message.
+ * Extract the 8-byte server challenge from an NT Challenge (Type 2) message.
  */
 int
-getntlmchal(uchar *buf, int n, uchar challenge[8])
+getntchal(uchar challenge[8], uchar *buf, int n)
 {
 	if(n < 32){
-		werrstr("NTLM Challenge: too short (%d)", n);
+		werrstr("NT Challenge: too short (%d)", n);
 		return -1;
 	}
 	if(memcmp(buf, "NTLMSSP\0", 8) != 0){
-		werrstr("NTLM Challenge: bad signature");
+		werrstr("NT Challenge: bad signature");
 		return -1;
 	}
 	if(GLONG(buf+8) != 2){
-		werrstr("NTLM Challenge: bad MessageType (%ld)", (long)GLONG(buf+8));
+		werrstr("NT Challenge: bad MessageType (%ld)", (long)GLONG(buf+8));
 		return -1;
 	}
 	memmove(challenge, buf+24, 8);
 	return 0;
 }
 
-/*
- * Build NTLM Authenticate message (Type 3).
- *
- * ntresp must be NTRespLen (24) bytes: the NT response from auth_respond.
- * LmChallengeResponse is set to zeros (acceptable for NTLMv1).
- *
- * Fixed header layout (64 bytes, no Version or MIC fields):
- *   0  Signature "NTLMSSP\0" (8)
- *   8  MessageType = 3 (4)
- *  12  LmChallengeResponseFields (8)
- *  20  NtChallengeResponseFields (8)
- *  28  DomainNameFields (8)
- *  36  UserNameFields (8)
- *  44  WorkstationFields (8)
- *  52  EncryptedRandomSessionKeyFields (8)
- *  60  NegotiateFlags (4)
- *
- * Payload (at offset 64): DomainName | UserName | LmResponse | NtResponse
- */
 int
-mkntlmauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
+mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
 {
 	uchar dom16[512], usr16[512];
 	int domlen, usrlen;
@@ -364,7 +305,7 @@ mkntlmauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLe
 	total     = ntoff  + NTRespLen;
 
 	if(total > nbuf){
-		werrstr("mkntlmauth: buffer too small (%d < %d)", nbuf, total);
+		werrstr("mkntauth: buffer too small (%d < %d)", nbuf, total);
 		return -1;
 	}
 
@@ -403,7 +344,7 @@ mkntlmauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLe
 	PLONG(p, ntoff+NTRespLen);  p += 4;
 
 	/* NegotiateFlags */
-	PLONG(p, NTLMFlags);  p += 4;
+	PLONG(p, NTFlags);  p += 4;
 
 	/* payload */
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */

@@ -40,12 +40,12 @@ int		tptype(uchar*,uchar*);
 uchar*	tpdat(uchar*,uchar*);
 
 /* nla.c */
-int		mkntlmnego(uchar*, int);
-int		getntlmchal(uchar*, int, uchar[8]);
-int		mkntlmauth(uchar*, int, char*, char*, uchar*);
+int		mkntnego(uchar*, int);
+int		getntchal(uchar[8], uchar*, int);
+int		mkntauth(uchar*, int, char*, char*, uchar*);
 int		writetsreq(int, uchar*, int);
 int		readtsreq(int, uchar*, int);
-int		gettsreq(uchar*, int, uchar**, int*);
+uchar*	gettsreq(uchar*, int, int*);
 
 /* rpc.c */
 int		nlahandshake(Rdp*);

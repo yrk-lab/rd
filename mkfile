@@ -32,7 +32,6 @@ OFILES=\
 
 THREADOFILES=${OFILES:rd.$O=rd-thread.$O}
 CLEANFILES=$O.thread $O.test
-TESTHFILES=audio.c mppc.c rle.c egdi.c nla.c
 TESTOFILES=\
 	efs_test.$O	errs.$O efs.$O utf16.$O \
 	aud_test.$O	\
@@ -55,6 +54,6 @@ runtest:V: $O.test
 $O.thread:	$THREADOFILES $LIB
 	$LD $LDFLAGS -o $target $prereq
 
-$TESTOFILES: $TESTHFILES
+$TESTOFILES: audio.c mppc.c rle.c egdi.c nla.c
 $O.test:	$TESTOFILES $LIB
 	$LD $LDFLAGS -o $target $prereq

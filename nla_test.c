@@ -3,49 +3,49 @@
 int nlatests(void);
 
 /*
- * testmkntlmnego: NTLM Negotiate (Type 1) message must be 32 bytes with
+ * testmkntnego: NT Negotiate (Type 1) message must be 32 bytes with
  * correct signature, message type, and negotiate flags.
  */
 static int
-testmkntlmnego(void)
+testmkntnego(void)
 {
 	uchar buf[64];
 	int n;
 
-	n = mkntlmnego(buf, sizeof buf);
+	n = mkntnego(buf, sizeof buf);
 	if(n != 32)
-		sysfatal("testmkntlmnego: want 32 bytes, got %d", n);
+		sysfatal("testmkntnego: want 32 bytes, got %d", n);
 	if(memcmp(buf, "NTLMSSP\0", 8) != 0)
-		sysfatal("testmkntlmnego: bad signature");
+		sysfatal("testmkntnego: bad signature");
 	if(GLONG(buf+8) != 1)
-		sysfatal("testmkntlmnego: want MessageType=1, got %ld", (long)GLONG(buf+8));
-	if(GLONG(buf+12) != NTLMFlags)
-		sysfatal("testmkntlmnego: want NTLMFlags=%ux, got %lux",
-			NTLMFlags, (ulong)GLONG(buf+12));
+		sysfatal("testmkntnego: want MessageType=1, got %ld", (long)GLONG(buf+8));
+	if(GLONG(buf+12) != NTFlags)
+		sysfatal("testmkntnego: want NTFlags=%ux, got %lux",
+			NTFlags, (ulong)GLONG(buf+12));
 	return 0;
 }
 
 /*
- * testmkntlmnegosmall: buffer too small must return an error.
+ * testmkntnegosmall: buffer too small must return an error.
  */
 static int
-testmkntlmnegosmall(void)
+testmkntnegosmall(void)
 {
 	uchar buf[16];
 	int n;
 
-	n = mkntlmnego(buf, sizeof buf);
+	n = mkntnego(buf, sizeof buf);
 	if(n >= 0)
-		sysfatal("testmkntlmnegosmall: expected error, got %d", n);
+		sysfatal("testmkntnegosmall: expected error, got %d", n);
 	return 0;
 }
 
 /*
- * testgetntlmchal: extract the 8-byte challenge from a minimal but valid
- * NTLM Challenge (Type 2) message.
+ * testgetntchal: extract the 8-byte challenge from a minimal but valid
+ * NT Challenge (Type 2) message.
  */
 static int
-testgetntlmchal(void)
+testgetntchal(void)
 {
 	uchar msg[48];
 	uchar challenge[8];
@@ -57,36 +57,36 @@ testgetntlmchal(void)
 	PLONG(msg+8, 2);			/* MessageType = 2 */
 	memmove(msg+24, wantchal, 8);		/* ServerChallenge */
 
-	n = getntlmchal(msg, sizeof msg, challenge);
+	n = getntchal(challenge, msg, sizeof msg);
 	if(n < 0)
-		sysfatal("testgetntlmchal: unexpected error");
+		sysfatal("testgetntchal: unexpected error");
 	if(memcmp(challenge, wantchal, 8) != 0)
-		sysfatal("testgetntlmchal: challenge mismatch");
+		sysfatal("testgetntchal: challenge mismatch");
 	return 0;
 }
 
 /*
- * testgetntlmchalshort: message shorter than 32 bytes must return an error.
+ * testgetntchalshort: message shorter than 32 bytes must return an error.
  */
 static int
-testgetntlmchalshort(void)
+testgetntchalshort(void)
 {
 	uchar msg[10];
 	uchar challenge[8];
 	int n;
 
 	memset(msg, 0, sizeof msg);
-	n = getntlmchal(msg, sizeof msg, challenge);
+	n = getntchal(challenge, msg, sizeof msg);
 	if(n >= 0)
-		sysfatal("testgetntlmchalshort: expected error, got %d", n);
+		sysfatal("testgetntchalshort: expected error, got %d", n);
 	return 0;
 }
 
 /*
- * testgetntlmchalbadsig: wrong signature must return an error.
+ * testgetntchalbadsig: wrong signature must return an error.
  */
 static int
-testgetntlmchalbadsig(void)
+testgetntchalbadsig(void)
 {
 	uchar msg[48];
 	uchar challenge[8];
@@ -96,17 +96,17 @@ testgetntlmchalbadsig(void)
 	memmove(msg, "BADMSSSP", 8);
 	PLONG(msg+8, 2);
 
-	n = getntlmchal(msg, sizeof msg, challenge);
+	n = getntchal(challenge, msg, sizeof msg);
 	if(n >= 0)
-		sysfatal("testgetntlmchalbadsig: expected error, got %d", n);
+		sysfatal("testgetntchalbadsig: expected error, got %d", n);
 	return 0;
 }
 
 /*
- * testgetntlmchalbadtype: MessageType != 2 must return an error.
+ * testgetntchalbadtype: MessageType != 2 must return an error.
  */
 static int
-testgetntlmchalbadtype(void)
+testgetntchalbadtype(void)
 {
 	uchar msg[48];
 	uchar challenge[8];
@@ -116,15 +116,15 @@ testgetntlmchalbadtype(void)
 	memmove(msg, "NTLMSSP\0", 8);
 	PLONG(msg+8, 1);			/* Type 1, not 2 */
 
-	n = getntlmchal(msg, sizeof msg, challenge);
+	n = getntchal(challenge, msg, sizeof msg);
 	if(n >= 0)
-		sysfatal("testgetntlmchalbadtype: expected error, got %d", n);
+		sysfatal("testgetntchalbadtype: expected error, got %d", n);
 	return 0;
 }
 
 /*
  * testmktsreqhdr: verify the exact DER encoding of a TSRequest wrapping a
- * single-byte NTLM token (0xAA).
+ * single-byte NT token (0xAA).
  *
  *   30 10  SEQUENCE(16)
  *     a0 03 02 01 05  [0] version=5
@@ -172,7 +172,8 @@ testmktsreqround(void)
 	n = mktsreq(buf, sizeof buf, token, sizeof token);
 	if(n < 0)
 		sysfatal("testmktsreqround: mktsreq failed");
-	if(gettsreq(buf, n, &outp, &outlen) < 0)
+	outp = gettsreq(buf, n, &outlen);
+	if(outp == nil)
 		sysfatal("testmktsreqround: gettsreq failed");
 	if(outlen != (int)sizeof token)
 		sysfatal("testmktsreqround: outlen: want %d, got %d",
@@ -199,43 +200,43 @@ testmktsreqsmallbuf(void)
 }
 
 /*
- * testmkntlmauth: NTLM Authenticate (Type 3) message must have correct
+ * testmkntauth: NT Authenticate (Type 3) message must have correct
  * signature, message type, and negotiate flags at the expected offsets.
  */
 static int
-testmkntlmauth(void)
+testmkntauth(void)
 {
 	uchar ntresp[NTRespLen];
 	uchar buf[640];
 	int n;
 
 	memset(ntresp, 0x55, NTRespLen);
-	n = mkntlmauth(buf, sizeof buf, "joe", "CORP", ntresp);
+	n = mkntauth(buf, sizeof buf, "joe", "CORP", ntresp);
 	if(n < 0)
-		sysfatal("testmkntlmauth: unexpected error");
+		sysfatal("testmkntauth: unexpected error");
 	if(n < 64)
-		sysfatal("testmkntlmauth: message too short (%d)", n);
+		sysfatal("testmkntauth: message too short (%d)", n);
 	if(memcmp(buf, "NTLMSSP\0", 8) != 0)
-		sysfatal("testmkntlmauth: bad signature");
+		sysfatal("testmkntauth: bad signature");
 	if(GLONG(buf+8) != 3)
-		sysfatal("testmkntlmauth: want MessageType=3, got %ld", (long)GLONG(buf+8));
-	if(GLONG(buf+60) != NTLMFlags)
-		sysfatal("testmkntlmauth: bad NegotiateFlags");
+		sysfatal("testmkntauth: want MessageType=3, got %ld", (long)GLONG(buf+8));
+	if(GLONG(buf+60) != NTFlags)
+		sysfatal("testmkntauth: bad NegotiateFlags");
 	return 0;
 }
 
 int
 nlatests(void)
 {
-	testmkntlmnego();
-	testmkntlmnegosmall();
-	testgetntlmchal();
-	testgetntlmchalshort();
-	testgetntlmchalbadsig();
-	testgetntlmchalbadtype();
+	testmkntnego();
+	testmkntnegosmall();
+	testgetntchal();
+	testgetntchalshort();
+	testgetntchalbadsig();
+	testgetntchalbadtype();
 	testmktsreqhdr();
 	testmktsreqround();
 	testmktsreqsmallbuf();
-	testmkntlmauth();
+	testmkntauth();
 	return 0;
 }
