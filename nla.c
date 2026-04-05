@@ -30,6 +30,7 @@ enum
 	NTRespLen	= 24,
 
 	/* ASN.1 Universal tags (BER/DER) */
+	TagInt		= 2,	/* INTEGER */
 	TagOStr		= 4,	/* OCTET STRING */
 	TagSeq		= 16,	/* SEQUENCE / SEQUENCE OF */
 
@@ -104,19 +105,19 @@ mktsreq(uchar *buf, int nbuf, uchar *tok, int toklen)
 
 	p = buf;
 	/* TSRequest SEQUENCE */
-	*p++ = 0x30; p = putder(p, bodysz);
+	*p++ = 0x20|TagSeq; p = putder(p, bodysz);
 	/* version [0] EXPLICIT INTEGER CredSSPVer */
-	*p++ = 0xa0; *p++ = 0x03;
-	*p++ = 0x02; *p++ = 0x01; *p++ = CredSSPVer;
+	*p++ = 0xa0|TSSnegoToken; *p++ = 0x03;
+	*p++ = TagInt; *p++ = 0x01; *p++ = CredSSPVer;
 	/* negoTokens [1] EXPLICIT NegoData */
-	*p++ = 0xa1; p = putder(p, datasz);
+	*p++ = 0xa0|TSSnegoTokens; p = putder(p, datasz);
 	/* NegoData SEQUENCE OF */
-	*p++ = 0x30; p = putder(p, itemsz);
+	*p++ = 0x20|TagSeq; p = putder(p, itemsz);
 	/* NegoDataItem SEQUENCE */
-	*p++ = 0x30; p = putder(p, a0toksz);
+	*p++ = 0x20|TagSeq; p = putder(p, a0toksz);
 	/* negoToken [0] EXPLICIT OCTET STRING */
-	*p++ = 0xa0; p = putder(p, octetsz);
-	*p++ = 0x04; p = putder(p, toklen);
+	*p++ = 0xa0|TSSnegoToken; p = putder(p, octetsz);
+	*p++ = TagOStr; p = putder(p, toklen);
 	memmove(p, tok, toklen);
 	p += toklen;
 
@@ -209,7 +210,7 @@ readtsreq(int fd, uchar *buf, int nbuf)
 		werrstr("NLA: read TSRequest header: %r");
 		return -1;
 	}
-	if(hdr[0] != 0x30){
+	if(hdr[0] != (0x20|TagSeq)){
 		werrstr("NLA: TSRequest not a SEQUENCE (got 0x%02x)", hdr[0]);
 		return -1;
 	}
