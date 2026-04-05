@@ -61,14 +61,14 @@ nlahandshake(Rdp *c)
 	uchar *ntp;
 	int n, ntlen, nresp;
 
-	/* Phase A: NT Negotiate */
+	/* Phase A: NTLM Negotiate */
 	n = mkntnego(ntnego, sizeof ntnego);
 	if(n < 0)
 		return -1;
 	if(writetsreq(c->fd, ntnego, n) < 0)
 		return -1;
 
-	/* Phase B: NT Challenge */
+	/* Phase B: NTLM Challenge */
 	n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
 	if(n < 0)
 		return -1;
@@ -101,7 +101,7 @@ nlahandshake(Rdp *c)
 			sysfatal("strdup: %r");
 	}
 
-	/* Phase C: NT Authenticate */
+	/* Phase C: NTLM Authenticate */
 	n = mkntauth(ntauth, sizeof ntauth, c->user, c->windom, ntresp);
 	if(n < 0)
 		return -1;
