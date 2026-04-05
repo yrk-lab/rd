@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <auth.h>
+#include <libsec.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -56,10 +57,13 @@ int
 nlahandshake(Rdp *c)
 {
 	uchar ntnego[64], tsreqbuf[4096], ntauth[640];
-	uchar challenge[8], ntresp[64];
+	uchar challenge[8], chal[8], ntresp[64];
+	uchar cnonce[8], tmp[16], md5out[MD5dlen];
+	uchar lmresp[24], *lmrespptr;	/* LmChallengeResponse is 24 bytes */
 	char user[256];
 	uchar *ntp;
 	int n, ntlen, nresp;
+	long srvflags;
 
 	/* Phase A: NTLM Negotiate */
 	n = mkntnego(ntnego, sizeof ntnego);
@@ -78,9 +82,27 @@ nlahandshake(Rdp *c)
 	if(getntchal(challenge, ntp, ntlen) < 0)
 		return -1;
 
+	/* Check if server requested Extended Session Security (ESS/NTLMv1-ESS) */
+	srvflags = (ntlen >= 24) ? (long)GLONG(ntp+20) : 0;
+	lmrespptr = nil;
+	memmove(chal, challenge, 8);
+	if(srvflags & 0x00080000){	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
+		/* generate random 8-byte client nonce */
+		genrandom(cnonce, sizeof cnonce);
+		/* ESS challenge = MD5(server_challenge || client_nonce)[0..7] */
+		memmove(tmp, challenge, 8);
+		memmove(tmp+8, cnonce, 8);
+		md5(tmp, 16, md5out, nil);
+		memmove(chal, md5out, 8);
+		/* LM response = client_nonce (8 bytes) + zeros (16 bytes) */
+		memmove(lmresp, cnonce, 8);
+		memset(lmresp+8, 0, 16);
+		lmrespptr = lmresp;
+	}
+
 	/* Ask factotum to compute the NT response for this challenge */
 	user[0] = '\0';
-	nresp = auth_respond(challenge, 8,
+	nresp = auth_respond(chal, 8,
 		user, sizeof(user)-1,
 		ntresp, sizeof(ntresp),
 		auth_getkey,
@@ -102,7 +124,7 @@ nlahandshake(Rdp *c)
 	}
 
 	/* Phase C: NTLM Authenticate */
-	n = mkntauth(ntauth, sizeof ntauth, c->user, c->windom, ntresp);
+	n = mkntauth(ntauth, sizeof ntauth, c->user, c->windom, ntresp, lmrespptr);
 	if(n < 0)
 		return -1;
 	if(writetsreq(c->fd, ntauth, n) < 0)

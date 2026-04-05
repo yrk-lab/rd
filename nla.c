@@ -23,6 +23,7 @@ enum
 	NfReqTarget	= 0x00000004,	/* NTLMSSP_REQUEST_TARGET */
 	NfNTLM		= 0x00000200,	/* NTLMSSP_NEGOTIATE_NTLM */
 	NfAlwaysSign	= 0x00008000,	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
+	NfESS		= 0x00080000,	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
 
 	NTLMFlags	= NfUnicode | NfReqTarget | NfNTLM | NfAlwaysSign,
 
@@ -303,7 +304,7 @@ getntchal(uchar challenge[8], uchar *buf, int n)
 }
 
 int
-mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen])
+mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen], uchar *lmresp)
 {
 	uchar dom16[512], usr16[512];
 	int domlen, usrlen;
@@ -314,7 +315,7 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	domlen = toutf16(dom16, sizeof dom16, domain, strlen(domain));
 	usrlen = toutf16(usr16, sizeof usr16, user, strlen(user));
 
-	lmlen     = NTRespLen;		/* zeros for LM response */
+	lmlen     = NTRespLen;		/* LmChallengeResponse length (24 bytes) */
 	domoff    = 64;
 	usroff    = domoff + domlen;
 	lmoff     = usroff + usrlen;
@@ -367,12 +368,16 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	p += 8;
 
 	/* NegotiateFlags */
-	PLONG(p, NTLMFlags);  p += 4;
+	PLONG(p, NTLMFlags | (lmresp != nil ? NfESS : 0));  p += 4;
 
 	/* payload */
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */
 	memmove(p, usr16, usrlen);  p += usrlen;		/* UserName */
-	memset(p, 0, lmlen);        p += lmlen;			/* LmChallengeResponse */
+	if(lmresp != nil)
+		memmove(p, lmresp, lmlen);			/* ESS: client_nonce || zeros */
+	else
+		memset(p, 0, lmlen);				/* NTLMv1: all zeros */
+	p += lmlen;
 	memmove(p, ntresp, NTRespLen);  p += NTRespLen;		/* NtChallengeResponse */
 
 	return p - buf;
