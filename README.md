@@ -59,7 +59,7 @@ Rd follows the conventional Plan 9 build workflow:
 ## Usage
 
 ```
-rd [-0A] [-T title] [-a depth] [-c wdir] [-d dom] [-k keyspec] [-s shell] [net!]server[!port]
+rd [-0AN] [-T title] [-a depth] [-c wdir] [-d dom] [-k keyspec] [-s shell] [net!]server[!port]
 ```
 
 Rd takes exactly **one non-optional argument**: a **server connection string**.
@@ -82,13 +82,16 @@ Examples:
 ### Options
 
 - `-k keyspec`  
-  Adds extra attributes to the **factotum** key query used to obtain credentials (the attributes are appended to the query passed to `auth_getuserpasswd`).
+  Adds extra attributes to the **factotum** key query used to obtain credentials. With plain TLS logon the attributes are appended to the `proto=pass service=rdp` query passed to `auth_getuserpasswd`. With `-N` (NLA) they are appended to the `proto=mschap service=rdp` query passed to `auth_respond`.
 
 - `-d dom`  
   Specifies a **Windows domain name** to authenticate against (for domain logons).
 
+- `-N`  
+  Enables **Network Level Authentication (NLA)** using CredSSP/NTLM. After TLS is established, Rd performs an NTLM handshake encapsulated in ASN.1 DER `TSRequest` messages (MS-CSSP protocol). The NT response is computed by **factotum** via `auth_respond` with `proto=mschap`, so the plaintext password never leaves factotum. NLA is required by some Windows configurations and provides pre-session authentication.
+
 - `-A`  
-  Disables factotum-based “auto logon”. With `-A`, Rd requests the server to present an interactive **logon screen** instead, and credentials are entered and validated inside the remote GUI session. At that stage, credential submission occurs over an **encrypted channel**.
+  Disables factotum-based “auto logon”. With `-A`, Rd requests the server to present an interactive **logon screen** instead, and credentials are entered and validated inside the remote GUI session. At that stage, credential submission occurs over an **encrypted channel**. (Not applicable with `-N`: NLA always authenticates before the session starts.)
 
 - `-T title`  
   Customizes the local window label. By default it is:
@@ -122,12 +125,14 @@ A quick overview of the runtime flow and the major modules.
 
 Connection setup follows a staged pipeline:
 
-1. Parse command-line options (title, depth, domain, shell override, working directory, console attach).
-2. Optionally obtain credentials from factotum.
+1. Parse command-line options (title, depth, domain, shell override, working directory, console attach, NLA flag).
+2. Optionally obtain credentials from factotum (skipped when `-N` NLA is used, as factotum is consulted during the NLA handshake instead).
 3. `dial()` the server (default TCP port 3389).
-4. Perform **X.224** transport/session handshake.
-5. Initialize the local screen/window.
-6. Perform the main **RDP handshake** (negotiation/capabilities/licensing/activation).
+4. Perform **X.224** transport/session handshake (negotiating TLS or CredSSP as the security protocol).
+5. Upgrade the connection to **TLS** (`starttls`).
+6. If `-N` was given, perform the **NLA (CredSSP/NTLM) handshake** (`nlahandshake`): a three-message NTLM exchange (Negotiate → Challenge → Authenticate) wrapped in ASN.1 DER `TSRequest` structures, with the NT response computed by factotum.
+7. Initialize the local screen/window.
+8. Perform the main **RDP handshake** (negotiation/capabilities/licensing/activation).
 
 ### 3) Concurrency model: network loop + local input helpers
 
@@ -183,6 +188,7 @@ Rd includes a virtual-channel abstraction (`Vchan`) that:
 **Security:**
 
 - `tls.c` / `tls9f.c` — TLS support and certificate/thumbprint verification glue (build selects the appropriate file)
+- `nla.c` — Network Level Authentication (NLA/CredSSP): NTLM message serialisers/parsers (`mkntnego`, `mkntauth`, `getntchal`) and `TSRequest` ASN.1 DER framing (`writetsreq`, `readtsreq`, `gettsreq`)
 
 **Rendering and graphics updates:**
 
@@ -201,7 +207,7 @@ Rd includes a virtual-channel abstraction (`Vchan`) that:
 **Virtual channels and extensions:**
 
 - `vchan.c` — virtual channel table setup, fragmentation/defragmentation, and send/dispatch support
-- `rpc.c` — higher-level request/response helpers used by some channel-style interactions
+- `rpc.c` — higher-level request/response helpers; also contains `nlahandshake()`, the CredSSP orchestration that drives the three-message NTLM exchange via factotum
 - `audio.c` — audio virtual channel handling and client-side playback hooks
 - `efs.c` — extension/virtual channel support for device-redirection-style messages (see `Efsmsg` in `dat.h`)
 
@@ -212,6 +218,7 @@ Rd includes a virtual-channel abstraction (`Vchan`) that:
 - `aud_test.c` — audio-related tests
 - `efs_test.c` — tests for EFS/extension encoding/decoding
 - `msg_test.c` — message parsing/encoding tests
+- `nla_test.c` — NLA serialiser/parser tests (`writetsreq`/`gettsreq`, `mkntnego`, `getntchal`, `mkntauth`)
 
 **Headers:**
 
