@@ -116,8 +116,8 @@ mktsreq(uchar *buf, int nbuf, uchar *tok, int toklen)
 	/* TSRequest SEQUENCE */
 	*p++ = BerConstructed|TagSeq; p = putder(p, bodysz);
 	/* version [0] EXPLICIT INTEGER CredSSPVer */
-	*p++ = BerContext|TSSnegoToken; *p++ = 0x03;
-	*p++ = TagInt; *p++ = 0x01; *p++ = CredSSPVer;
+	*p++ = BerContext|TSSnegoToken; *p++ = 0x03; /* len */
+	*p++ = TagInt; p = putder(p, 1); *p++ = CredSSPVer;
 	/* negoTokens [1] EXPLICIT NegoData */
 	*p++ = BerContext|TSSnegoTokens; p = putder(p, datasz);
 	/* NegoData SEQUENCE OF */
@@ -331,34 +331,22 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	PLONG(p, 3);			p += 4;		/* MessageType */
 
 	/* LmChallengeResponseFields */
-	PSHORT(p, lmlen);  p += 2;
-	PSHORT(p, lmlen);  p += 2;
-	PLONG(p, lmoff);   p += 4;
+	PSHORT(p, lmlen); PSHORT(p+2, lmlen); PLONG(p+4, lmoff); p += 8;
 
 	/* NtChallengeResponseFields */
-	PSHORT(p, NTRespLen);  p += 2;
-	PSHORT(p, NTRespLen);  p += 2;
-	PLONG(p, ntoff);       p += 4;
+	PSHORT(p, NTRespLen); PSHORT(p+2, NTRespLen); PLONG(p+4, ntoff); p += 8;
 
 	/* DomainNameFields */
-	PSHORT(p, domlen);  p += 2;
-	PSHORT(p, domlen);  p += 2;
-	PLONG(p, domoff);   p += 4;
+	PSHORT(p, domlen); PSHORT(p+2, domlen); PLONG(p+4, domoff); p += 8;
 
 	/* UserNameFields */
-	PSHORT(p, usrlen);  p += 2;
-	PSHORT(p, usrlen);  p += 2;
-	PLONG(p, usroff);   p += 4;
+	PSHORT(p, usrlen); PSHORT(p+2, usrlen); PLONG(p+4, usroff); p += 8;
 
 	/* WorkstationFields (empty) */
-	PSHORT(p, 0);  p += 2;
-	PSHORT(p, 0);  p += 2;
-	PLONG(p, lmoff);  p += 4;	/* offset points to lm area; length is 0 */
+	PSHORT(p, 0); PSHORT(p+2, 0); PLONG(p+4, lmoff); p += 8;	/* offset points to lm area; length is 0 */
 
 	/* EncryptedRandomSessionKeyFields (empty) */
-	PSHORT(p, 0);  p += 2;
-	PSHORT(p, 0);  p += 2;
-	PLONG(p, ntoff+NTRespLen);  p += 4;
+	PSHORT(p, 0); PSHORT(p+2, 0); PLONG(p+4, ntoff+NTRespLen); p += 8;
 
 	/* NegotiateFlags */
 	PLONG(p, NTLMFlags);  p += 4;
