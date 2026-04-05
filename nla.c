@@ -31,8 +31,17 @@ enum
 
 	/* ASN.1 Universal tags (BER/DER) */
 	TagInt		= 2,	/* INTEGER */
-	TagOStr		= 4,	/* OCTET STRING */
+	TagOctetString	= 4,	/* OCTET STRING */
 	TagSeq		= 16,	/* SEQUENCE / SEQUENCE OF */
+
+	/* BER class/construction bits */
+	BerConstructed	= 0x20,	/* constructed encoding bit */
+	BerContext	= 0xa0,	/* context-specific + constructed base */
+
+	/* BER long-form length octets */
+	BerShortMax	= 0x80,	/* values below this fit in one byte */
+	BerLen1		= 0x81,	/* long form: length in next 1 byte */
+	BerLen2		= 0x82,	/* long form: length in next 2 bytes */
 
 	/* CredSSP TSRequest context-specific field tags (gbtag returns 5-bit tag number) */
 	TSSnegoTokens	= 1,	/* TSRequest [1] negoTokens field */
@@ -45,7 +54,7 @@ enum
 static int
 sizeder(int n)
 {
-	if(n < 0x80)
+	if(n < BerShortMax)
 		return 1;
 	if(n < 0x100)
 		return 2;
@@ -55,13 +64,13 @@ sizeder(int n)
 static uchar*
 putder(uchar *p, int n)
 {
-	if(n < 0x80){
+	if(n < BerShortMax){
 		*p++ = n;
 	}else if(n < 0x100){
-		*p++ = 0x81;
+		*p++ = BerLen1;
 		*p++ = n;
 	}else{
-		*p++ = 0x82;
+		*p++ = BerLen2;
 		*p++ = n >> 8;
 		*p++ = n;
 	}
@@ -105,19 +114,19 @@ mktsreq(uchar *buf, int nbuf, uchar *tok, int toklen)
 
 	p = buf;
 	/* TSRequest SEQUENCE */
-	*p++ = 0x20|TagSeq; p = putder(p, bodysz);
+	*p++ = BerConstructed|TagSeq; p = putder(p, bodysz);
 	/* version [0] EXPLICIT INTEGER CredSSPVer */
-	*p++ = 0xa0|TSSnegoToken; *p++ = 0x03;
+	*p++ = BerContext|TSSnegoToken; *p++ = 0x03;
 	*p++ = TagInt; *p++ = 0x01; *p++ = CredSSPVer;
 	/* negoTokens [1] EXPLICIT NegoData */
-	*p++ = 0xa0|TSSnegoTokens; p = putder(p, datasz);
+	*p++ = BerContext|TSSnegoTokens; p = putder(p, datasz);
 	/* NegoData SEQUENCE OF */
-	*p++ = 0x20|TagSeq; p = putder(p, itemsz);
+	*p++ = BerConstructed|TagSeq; p = putder(p, itemsz);
 	/* NegoDataItem SEQUENCE */
-	*p++ = 0x20|TagSeq; p = putder(p, a0toksz);
+	*p++ = BerConstructed|TagSeq; p = putder(p, a0toksz);
 	/* negoToken [0] EXPLICIT OCTET STRING */
-	*p++ = 0xa0|TSSnegoToken; p = putder(p, octetsz);
-	*p++ = TagOStr; p = putder(p, toklen);
+	*p++ = BerContext|TSSnegoToken; p = putder(p, octetsz);
+	*p++ = TagOctetString; p = putder(p, toklen);
 	memmove(p, tok, toklen);
 	p += toklen;
 
@@ -162,7 +171,7 @@ gettsreq(uchar *buf, int n, int *ntlenp)
 				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
 			/* OCTET STRING */
-			if((p = gbtag(p, ep, &tag)) == nil || tag != TagOStr
+			if((p = gbtag(p, ep, &tag)) == nil || tag != TagOctetString
 				|| (p = gblen(p, ep, &len)) == nil)
 				goto bad;
 			*ntlenp = len;
@@ -210,21 +219,21 @@ readtsreq(int fd, uchar *buf, int nbuf)
 		werrstr("NLA: read TSRequest header: %r");
 		return -1;
 	}
-	if(hdr[0] != (0x20|TagSeq)){
+	if(hdr[0] != (BerConstructed|TagSeq)){
 		werrstr("NLA: TSRequest not a SEQUENCE (got 0x%02x)", hdr[0]);
 		return -1;
 	}
-	if(hdr[1] < 0x80){
+	if(hdr[1] < BerShortMax){
 		bodylen = hdr[1];
 		hlen = 2;
-	}else if(hdr[1] == 0x81){
+	}else if(hdr[1] == BerLen1){
 		if(readn(fd, hdr+2, 1) != 1){
 			werrstr("NLA: read TSRequest length: %r");
 			return -1;
 		}
 		bodylen = hdr[2];
 		hlen = 3;
-	}else if(hdr[1] == 0x82){
+	}else if(hdr[1] == BerLen2){
 		if(readn(fd, hdr+2, 2) != 2){
 			werrstr("NLA: read TSRequest length: %r");
 			return -1;
