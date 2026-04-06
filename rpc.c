@@ -23,7 +23,9 @@ x224handshake(Rdp* c)
 	Msg t, r;
 
 	t.type = Xconnect;
-	t.negproto = c->nla ? ProtoCSSP : ProtoTLS;
+	/* advertise HYBRID_EX (ProtoUAUTH) alongside HYBRID so the server
+	 * may send the Early User Authorization Result PDU ([MS-RDPBCGR] 2.2.1.14) */
+	t.negproto = c->nla ? (ProtoCSSP | ProtoUAUTH) : ProtoTLS;
 	if(writemsg(c, &t) <= 0)
 		return -1;
 	if(readmsg(c, &r) <= 0)
@@ -33,7 +35,8 @@ x224handshake(Rdp* c)
 		return -1;
 	}
 	if(c->nla){
-		if((r.negproto&ProtoCSSP) == 0){
+		/* server may select HYBRID (ProtoCSSP) or HYBRID_EX (ProtoUAUTH) */
+		if((r.negproto & (ProtoCSSP | ProtoUAUTH)) == 0){
 			werrstr("server refused CredSSP");
 			return -1;
 		}
@@ -49,6 +52,24 @@ x224handshake(Rdp* c)
 		return -1;
 	if(c->nla && nlahandshake(c) < 0)
 		return -1;
+
+	/* [MS-RDPBCGR] 2.2.1.14: Early User Authorization Result PDU —
+	 * server sends a 4-byte authorizationResult immediately after the
+	 * CredSSP handshake if (and only if) client advertised HYBRID_EX */
+	if(c->nla && (c->sproto & ProtoUAUTH)){
+		uchar authbuf[4];
+		ulong authresult;
+		if(readn(c->fd, authbuf, 4) != 4){
+			werrstr("NLA: read Early User Authorization Result: %r");
+			return -1;
+		}
+		authresult = GLONG(authbuf);
+		fprint(2, "nla: Early User Authorization Result: %08lux\n", authresult);
+		if(authresult != 0){
+			werrstr("NLA: server denied access (authorizationResult=%08lux)", authresult);
+			return -1;
+		}
+	}
 
 	return 0;
 }
