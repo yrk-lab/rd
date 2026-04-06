@@ -19,9 +19,9 @@ testmkntnego(void)
 		sysfatal("testmkntnego: bad signature");
 	if(GLONG(buf+8) != 1)
 		sysfatal("testmkntnego: want MessageType=1, got %ld", (long)GLONG(buf+8));
-	if(GLONG(buf+12) != (NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign))
+	if(GLONG(buf+12) != (NfUnicode|NfReqTarget|NfNTLM|NfSign|NfSeal|NfAlwaysSign))
 		sysfatal("testmkntnego: want NTLMFlags=%ux, got %lux",
-			NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign, (ulong)GLONG(buf+12));
+			NfUnicode|NfReqTarget|NfNTLM|NfSign|NfSeal|NfAlwaysSign, (ulong)GLONG(buf+12));
 	return 0;
 }
 
@@ -220,7 +220,7 @@ testmkntauth(void)
 		sysfatal("testmkntauth: bad signature");
 	if(GLONG(buf+8) != 3)
 		sysfatal("testmkntauth: want MessageType=3, got %ld", (long)GLONG(buf+8));
-	if(GLONG(buf+60) != (NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign))
+	if(GLONG(buf+60) != (NfUnicode|NfReqTarget|NfNTLM|NfSign|NfSeal|NfAlwaysSign))
 		sysfatal("testmkntauth: bad NegotiateFlags");
 	return 0;
 }

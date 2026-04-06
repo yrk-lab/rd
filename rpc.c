@@ -154,13 +154,8 @@ nlahandshake(Rdp *c)
 		fprint(2, "nla: computing NT response from password (user=%s, dom=%s)\n", user, dom);
 		ntrespfrompasswd(pass, chal, ntresp_direct);
 		nt_for_auth = ntresp_direct;
-		/* LM response: ESS uses cnonce+zeros; non-ESS uses zeros */
-		if(lmrespptr != nil)
-			lm_for_auth = lmrespptr;
-		else{
-			memset(lmresp, 0, sizeof lmresp);
-			lm_for_auth = lmresp;
-		}
+		/* LM response: nil for non-ESS (no NfESS); ESS cnonce+zeros otherwise */
+		lm_for_auth = lmrespptr;
 	}else{
 		/* Fall back to factotum mschap */
 		fprint(2, "nla: calling factotum mschap (keyspec=%s, dom=%s)\n", c->keyspec, dom);
@@ -180,7 +175,8 @@ nlahandshake(Rdp *c)
 		fprint(2, "nla: factotum returned user=%s nresp=%d\n", user, nresp);
 		/* factotum mschap returns MSchapreply: LMresp[24] at [0], NTresp[24] at [24] */
 		nt_for_auth = ntresp + 24;
-		lm_for_auth = (lmrespptr != nil) ? lmrespptr : ntresp;
+		/* nil for non-ESS so NfESS is not set; ESS cnonce+zeros otherwise */
+		lm_for_auth = lmrespptr;
 	}
 
 	/* Propagate user name if not yet set on the connection */
