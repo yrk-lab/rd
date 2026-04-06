@@ -672,6 +672,77 @@ readtsreq(int fd, uchar *buf, int nbuf)
 }
 
 /*
+ * readtsreq_oreuarp: Read a TSRequest or Early User Authorization Result PDU.
+ *
+ * In PROTOCOL_HYBRID_EX mode the server may send a 4-byte EUARP instead of
+ * (or before) the expected TSRequest.  The two are unambiguously distinguished
+ * by their first byte: a TSRequest is always a BER SEQUENCE (0x30), whereas
+ * the EUARP authorizationResult is a little-endian ULONG whose low byte is
+ * 0x00 (ACCESS_GRANTED) or a non-zero error code (ACCESS_DENIED etc.).
+ *
+ * Reads exactly 4 bytes first, then:
+ *   - If byte[0] == 0x30: it is a TSRequest; the remaining body is read and
+ *     the full blob is stored in buf.  Returns total byte count (> 0).
+ *   - Otherwise: it is an EUARP; *euarp is set to the LE ULONG value.
+ *     Returns 0.
+ *   - Returns -1 on I/O error.
+ */
+int
+readtsreq_oreuarp(int fd, uchar *buf, int nbuf, ulong *euarp)
+{
+	uchar hdr[4];
+	int hlen, bodylen, total, n;
+
+	n = readn(fd, hdr, 4);
+	if(n != 4){
+		werrstr("NLA: read PDU: %r");
+		return -1;
+	}
+
+	if(hdr[0] != (BerConstructed|TagSeq)){
+		/* Not a TSRequest SEQUENCE — interpret as EUARP authorizationResult */
+		*euarp = GLONG(hdr);
+		return 0;
+	}
+
+	/* TSRequest SEQUENCE: finish parsing the length using bytes already in hdr */
+	if(hdr[1] < BerShortMax){
+		bodylen = hdr[1];
+		hlen = 2;
+	} else if(hdr[1] == BerLen1){
+		bodylen = hdr[2];
+		hlen = 3;
+	} else if(hdr[1] == BerLen2){
+		bodylen = (hdr[2]<<8)|hdr[3];
+		hlen = 4;
+	} else {
+		werrstr("NLA: bad TSRequest length form 0x%02x", hdr[1]);
+		return -1;
+	}
+
+	total = hlen + bodylen;
+	if(total < 4){
+		werrstr("NLA: TSRequest too short (%d)", total);
+		return -1;
+	}
+	if(total > nbuf){
+		werrstr("NLA: TSRequest too large (%d)", total);
+		return -1;
+	}
+
+	/* The first 4 bytes are already in hdr; read the remainder */
+	memmove(buf, hdr, 4);
+	if(total > 4){
+		n = readn(fd, buf+4, total-4);
+		if(n != total-4){
+			werrstr("NLA: read TSRequest body: %r");
+			return -1;
+		}
+	}
+	return total;
+}
+
+/*
  * Build NTLM Negotiate message (Type 1).
  * This is a minimal negotiate with no domain or workstation names.
  */

@@ -97,9 +97,22 @@ nlahandshake(Rdp *c)
 		return -1;
 	fprint(2, "nla: Phase A sent (%d byte token)\n", n);
 
-	/* Phase B: NTLM Challenge */
+	/* Phase B: NTLM Challenge.
+	 * In PROTOCOL_HYBRID_EX mode the server may send a 4-byte Early User
+	 * Authorization Result PDU here instead of a TSRequest, e.g. to deny
+	 * access before the full CredSSP exchange completes. */
 	fprint(2, "nla: reading Phase B (NTLM Challenge)\n");
-	n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
+	if(c->sproto & ProtoUAUTH){
+		ulong euarp;
+		n = readtsreq_oreuarp(c->fd, tsreqbuf, sizeof tsreqbuf, &euarp);
+		if(n == 0){
+			fprint(2, "nla: Early User Authorization Result at Phase B: %08lux\n", euarp);
+			werrstr("NLA: server denied access (EUARP authorizationResult=%08lux)", euarp);
+			return -1;
+		}
+	} else {
+		n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
+	}
 	if(n < 0)
 		return -1;
 	ntp = gettsreq(tsreqbuf, n, &ntlen);

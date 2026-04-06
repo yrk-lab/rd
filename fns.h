@@ -49,6 +49,7 @@ int		writetsreqnonce(int, uchar*, int, uchar*, int);
 int		writetsreqdone(int, uchar*, int, uchar*, int);
 int		nlafinish(int, uchar*, int, char*, char*, char*);
 int		readtsreq(int, uchar*, int);
+int		readtsreq_oreuarp(int, uchar*, int, ulong*);
 uchar*	gettsreq(uchar*, int, int*);
 
 /* rpc.c */
