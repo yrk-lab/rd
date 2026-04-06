@@ -128,6 +128,7 @@ nlahandshake(Rdp *c)
 	}
 
 	/* Ask factotum to compute the NT response for this challenge */
+	fprint(2, "nla: calling factotum mschap (keyspec=%s, dom=%s)\n", c->keyspec, dom);
 	user[0] = '\0';
 	nresp = auth_respond(chal, 8,
 		user, sizeof(user)-1,
@@ -142,6 +143,7 @@ nlahandshake(Rdp *c)
 		werrstr("factotum mschap: response too short (%d)", nresp);
 		return -1;
 	}
+	fprint(2, "nla: factotum returned user=%s nresp=%d\n", user, nresp);
 
 	/* Use the user name returned by factotum if we don't have one */
 	if(user[0] != '\0' && c->user[0] == '\0'){
@@ -155,8 +157,7 @@ nlahandshake(Rdp *c)
 	 * factotum mschap returns MSchapreply: LMresp[24] at [0], NTresp[24] at [24].
 	 * For ESS, use the pre-built lmresp (cnonce+zeros); otherwise use factotum's LMresp.
 	 */
-	fprint(2, "nla: calling factotum mschap (user=%s, dom=%s)\n", c->user, dom);
-	fprint(2, "nla: sending Phase C (NTLM Authenticate)\n");
+	fprint(2, "nla: sending Phase C (NTLM Authenticate, user=%s, dom=%s)\n", c->user, dom);
 	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, lmrespptr != nil ? lmrespptr : ntresp);
 	if(n < 0)
 		return -1;
@@ -166,7 +167,7 @@ nlahandshake(Rdp *c)
 
 	/* Get password for session key derivation and TSCredentials.
 	 * Try proto=pass first (preferred), then fall back to -p value. */
-	fprint(2, "nla: retrieving password for credential delegation\n");
+	fprint(2, "nla: retrieving password (keyspec=%s)\n", c->keyspec);
 	pass[0] = '\0';
 	up = auth_getuserpasswd(auth_getkey, "proto=pass service=rdp %s", c->keyspec);
 	if(up != nil){
@@ -181,7 +182,7 @@ nlahandshake(Rdp *c)
 			"add 'proto=pass service=rdp' key to factotum or use -p");
 		return -1;
 	}
-	fprint(2, "nla: password obtained, calling nlafinish\n");
+	fprint(2, "nla: password obtained (%d chars), calling nlafinish\n", (int)strlen(pass));
 
 	/* Phases D and E: read server pubKeyAuth, send TSCredentials */
 	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, clnonce, dom, c->user, pass);
