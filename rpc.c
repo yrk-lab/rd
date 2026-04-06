@@ -56,20 +56,25 @@ x224handshake(Rdp* c)
 int
 nlahandshake(Rdp *c)
 {
-	uchar ntnego[64], tsreqbuf[4096], ntauth[640];
-	uchar challenge[8], chal[8], ntresp[64];
-	uchar cnonce[8], tmp[16], md5out[MD5dlen];
+	uchar ntnego[64], ntauth[640];
+	uchar challenge[8], chal[8], ntresp[64], tsreqbuf[4096];
+	uchar esscnonce[8], tmp[16], md5out[MD5dlen];
 	uchar lmresp[24], *lmrespptr;	/* LmChallengeResponse is 24 bytes */
-	char user[256], domfromchal[256], *dom;
+	uchar clnonce[32];		/* CredSSP v5 client nonce */
+	char user[256], domfromchal[256], pass[256], *dom;
 	uchar *ntp;
 	int n, ntlen, nresp, i, tlen, toff;
 	long srvflags;
+	UserPasswd *up;
 
-	/* Phase A: NTLM Negotiate */
+	/* Generate CredSSP v5 client nonce (32 bytes random) */
+	genrandom(clnonce, sizeof clnonce);
+
+	/* Phase A: NTLM Negotiate (includes clientNonce for CredSSP v5) */
 	n = mkntnego(ntnego, sizeof ntnego);
 	if(n < 0)
 		return -1;
-	if(writetsreq(c->fd, ntnego, n) < 0)
+	if(writetsreqnonce(c->fd, ntnego, n, clnonce, sizeof clnonce) < 0)
 		return -1;
 
 	/* Phase B: NTLM Challenge */
@@ -94,14 +99,14 @@ nlahandshake(Rdp *c)
 	memmove(chal, challenge, 8);
 	if(srvflags & 0x00080000){	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
 		/* generate random 8-byte client nonce */
-		genrandom(cnonce, sizeof cnonce);
+		genrandom(esscnonce, sizeof esscnonce);
 		/* ESS challenge = MD5(server_challenge || client_nonce)[0..7] */
 		memmove(tmp, challenge, 8);
-		memmove(tmp+8, cnonce, 8);
+		memmove(tmp+8, esscnonce, 8);
 		md5(tmp, 16, md5out, nil);
 		memmove(chal, md5out, 8);
 		/* LM response = client_nonce (8 bytes) + zeros (16 bytes) */
-		memmove(lmresp, cnonce, 8);
+		memmove(lmresp, esscnonce, 8);
 		memset(lmresp+8, 0, 16);
 		lmrespptr = lmresp;
 	}
@@ -152,7 +157,27 @@ nlahandshake(Rdp *c)
 	if(writetsreq(c->fd, ntauth, n) < 0)
 		return -1;
 
-	return 0;
+	/* Get password for session key derivation and TSCredentials.
+	 * Try proto=pass first (preferred), then fall back to -p value. */
+	pass[0] = '\0';
+	up = auth_getuserpasswd(auth_getkey, "proto=pass service=rdp %s", c->keyspec);
+	if(up != nil){
+		if(up->passwd != nil)
+			snprint(pass, sizeof pass, "%s", up->passwd);
+		free(up);
+	}
+	if(pass[0] == '\0' && c->passwd != nil && c->passwd[0] != '\0')
+		snprint(pass, sizeof pass, "%s", c->passwd);
+	if(pass[0] == '\0'){
+		werrstr("NLA: no password for credential delegation; "
+			"add 'proto=pass service=rdp' key to factotum or use -p");
+		return -1;
+	}
+
+	/* Phases D and E: read server pubKeyAuth, send TSCredentials */
+	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, clnonce, dom, c->user, pass);
+	memset(pass, 0, sizeof pass);
+	return n;
 }
 
 int

@@ -2,17 +2,22 @@
  * Network Level Authentication (NLA) via CredSSP [MS-CSSP].
  *
  * After TLS is established, the client authenticates using NTLM
- * (MS-NLMP) encapsulated in TSRequest ASN.1 DER messages.
- * The NT response is computed by factotum via auth_respond(2)
- * with proto=mschap, so the plaintext password never leaves factotum.
+ * (MS-NLMP) encapsulated in TSRequest ASN.1 DER messages, then
+ * delegates credentials via TSCredentials encrypted with the NTLM
+ * session key.  The NT response is computed by factotum via
+ * auth_respond(2) with proto=mschap.  The session key and TSCredentials
+ * password require a separate proto=pass factotum key (or -p flag).
  *
  * Exchange:
- *   Client → Server: TSRequest { negoTokens = [NTLM Negotiate] }
- *   Server → Client: TSRequest { negoTokens = [NTLM Challenge] }
- *   Client → Server: TSRequest { negoTokens = [NTLM Authenticate] }
+ *   Client → Server: TSRequest { version, negoTokens=[NTLM Negotiate], clientNonce }
+ *   Server → Client: TSRequest { negoTokens=[NTLM Challenge] }
+ *   Client → Server: TSRequest { negoTokens=[NTLM Authenticate] }
+ *   Server → Client: TSRequest { pubKeyAuth }
+ *   Client → Server: TSRequest { pubKeyAuth, authInfo=TSCredentials }
  */
 #include <u.h>
 #include <libc.h>
+#include <libsec.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -45,6 +50,9 @@ enum
 	/* CredSSP TSRequest context-specific field tags (gbtag returns 5-bit tag number) */
 	TSSnegoTokens	= 1,	/* TSRequest [1] negoTokens field */
 	TSSnegoToken	= 0,	/* NegoDataItem [0] negoToken field */
+	TSSauthInfo	= 2,	/* TSRequest [2] authInfo field */
+	TSSpubKeyAuth	= 3,	/* TSRequest [3] pubKeyAuth field */
+	TSSclientNonce	= 5,	/* TSRequest [5] clientNonce field (version 5+) */
 
 	/* CredSSP version advertised in TSRequest */
 	CredSSPVer	= 5,
@@ -77,7 +85,351 @@ putder(uchar *p, int n)
 }
 
 /*
- * Encode TSRequest { version=CredSSPVer, negoTokens=[{negoToken=ntlm}] }
+ * Extract SubjectPublicKeyInfo (SPKI) from a DER-encoded X.509 certificate.
+ * Returns a pointer to the SPKI TLV within cert and sets *spkilen.
+ * Returns nil on error (cert malformed or SPKI not found).
+ */
+static uchar*
+certspki(uchar *cert, int certlen, int *spkilen)
+{
+	uchar *p, *ep, *tbsep, *start;
+	int tag, len, i;
+
+	p = cert;
+	ep = cert + certlen;
+
+	/* Certificate SEQUENCE */
+	if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
+	|| (p = gblen(p, ep, &len)) == nil)
+		return nil;
+	ep = p + len;
+
+	/* tbsCertificate SEQUENCE */
+	if((p = gbtag(p, ep, &tag)) == nil || tag != TagSeq
+	|| (p = gblen(p, ep, &len)) == nil)
+		return nil;
+	tbsep = p + len;
+
+	/* optional [0] version (context tag 0) */
+	{
+		uchar *q;
+		int t, l;
+		q = gbtag(p, tbsep, &t);
+		if(q != nil && t == 0){
+			if((q = gblen(q, tbsep, &l)) == nil)
+				return nil;
+			p = q + l;
+		}
+	}
+
+	/* serialNumber INTEGER, signature SEQUENCE, issuer SEQUENCE,
+	 * validity SEQUENCE, subject SEQUENCE: skip 5 fields */
+	for(i = 0; i < 5; i++){
+		uchar *q;
+		int t, l;
+		if((q = gbtag(p, tbsep, &t)) == nil
+		|| (q = gblen(q, tbsep, &l)) == nil)
+			return nil;
+		p = q + l;
+	}
+
+	/* subjectPublicKeyInfo SEQUENCE is next */
+	start = p;
+	if((p = gbtag(p, tbsep, &tag)) == nil || tag != TagSeq
+	|| (p = gblen(p, tbsep, &len)) == nil)
+		return nil;
+	*spkilen = (p + len) - start;
+	return start;
+}
+
+/*
+ * Derive the NTLMv1 ExportedSessionKey from a plaintext password.
+ * sesskey = MD4(MD4(unicode(password)))
+ * The inner MD4 is the NT hash; the outer MD4 is the SessionBaseKey.
+ */
+static void
+ntsesskey(char *pass, uchar sesskey[MD5dlen])
+{
+	Rune r;
+	int i, n;
+	uchar *w, unipass[256], nthash[MD5dlen];
+
+	n = strlen(pass);
+	if(n > 128)
+		n = 128;
+	for(i = 0, w = unipass; i < n; i++){
+		pass += chartorune(&r, pass);
+		*w++ = r & 0xff;
+		*w++ = r >> 8;
+	}
+	md4(unipass, w - unipass, nthash, nil);
+	md4(nthash, MD5dlen, sesskey, nil);
+}
+
+/*
+ * Derive NTLM SignKey and SealKey from the ExportedSessionKey (MS-NLMP).
+ * Magic strings include the explicit NUL terminator per spec.
+ */
+static void
+ntlmkeys(uchar *sesskey, uchar signkey[MD5dlen], uchar sealkey[MD5dlen])
+{
+	DigestState *ds;
+	static char signmagic[] = "session key to client-to-server signing key magic constant";
+	static char sealmagic[] = "session key to client-to-server sealing key magic constant";
+
+	ds = md5((uchar*)sesskey, MD5dlen, nil, nil);
+	md5((uchar*)signmagic, sizeof signmagic, signkey, ds);	/* sizeof includes '\0' */
+	ds = md5((uchar*)sesskey, MD5dlen, nil, nil);
+	md5((uchar*)sealmagic, sizeof sealmagic, sealkey, ds);
+}
+
+/*
+ * NTLM EncryptMessage (NTLMv1 without ESS) per MS-NLMP Table 3.
+ * Output: NTLMSSP_MESSAGE_SIGNATURE (16 bytes) || encrypted message.
+ * RC4 state is shared: message is encrypted first, checksum second.
+ */
+static int
+ntlmseal(uchar *out, int nout, uchar *signkey, uchar *sealkey,
+         ulong seqno, uchar *msg, int nmsg)
+{
+	RC4state h;
+	uchar hmac[MD5dlen], seqbuf[4];
+	DigestState *ds;
+
+	if(nout < 16 + nmsg){
+		werrstr("ntlmseal: buffer too small");
+		return -1;
+	}
+	/* Encrypt message using SealKey; RC4 state advances */
+	rc4init(&h, sealkey, MD5dlen);
+	memmove(out+16, msg, nmsg);
+	rc4(&h, out+16, nmsg);
+
+	/* HMAC_MD5(SignKey, seqno_le || plaintext) – first 4 bytes used */
+	seqbuf[0] = seqno; seqbuf[1] = seqno>>8;
+	seqbuf[2] = seqno>>16; seqbuf[3] = seqno>>24;
+	ds = hmac_md5(seqbuf, 4, signkey, MD5dlen, nil, nil);
+	hmac_md5(msg, nmsg, signkey, MD5dlen, hmac, ds);
+
+	/* Encrypt 4-byte checksum using the continued RC4 state */
+	rc4(&h, hmac, 4);
+
+	/* NTLMSSP_MESSAGE_SIGNATURE: Version | RandomPad=0 | Checksum | SeqNum */
+	PLONG(out, 0x00000001);
+	PLONG(out+4, 0);
+	memmove(out+8, hmac, 4);
+	PLONG(out+12, seqno);
+
+	return 16 + nmsg;
+}
+
+/*
+ * Encode TSPasswordCreds { domainName [0], userName [1], password [2] }
+ * All string fields are UTF-16LE OCTET STRINGs wrapped in EXPLICIT context tags.
+ */
+static int
+mktspasswdcreds(uchar *buf, int nbuf, char *dom, char *user, char *pass)
+{
+	uchar d16[512], u16[512], p16[512];
+	int dlen, ulen, plen;
+	int f0sz, f1sz, f2sz, seqbody, total;
+	uchar *p;
+
+	dlen = toutf16(d16, sizeof d16, dom, strlen(dom));
+	ulen = toutf16(u16, sizeof u16, user, strlen(user));
+	plen = toutf16(p16, sizeof p16, pass, strlen(pass));
+
+	/* Each field: [n] EXPLICIT OCTET STRING  = context_tag + len(inner) + 0x04 + len(val) + val */
+#define FIELDSZ(vlen)	(1 + sizeder(1 + sizeder(vlen) + (vlen)) + 1 + sizeder(vlen) + (vlen))
+	f0sz = FIELDSZ(dlen);
+	f1sz = FIELDSZ(ulen);
+	f2sz = FIELDSZ(plen);
+#undef FIELDSZ
+
+	seqbody = f0sz + f1sz + f2sz;
+	total = 1 + sizeder(seqbody) + seqbody;
+	if(total > nbuf){
+		werrstr("mktspasswdcreds: buffer too small");
+		return -1;
+	}
+
+	p = buf;
+	*p++ = BerConstructed|TagSeq; p = putder(p, seqbody);
+
+#define PUTFIELD(tag, v16, vlen) \
+	do { \
+		*p++ = BerContext|(tag); p = putder(p, 1 + sizeder(vlen) + (vlen)); \
+		*p++ = TagOctetString; p = putder(p, vlen); \
+		memmove(p, v16, vlen); p += vlen; \
+	} while(0)
+
+	PUTFIELD(0, d16, dlen);
+	PUTFIELD(1, u16, ulen);
+	PUTFIELD(2, p16, plen);
+#undef PUTFIELD
+
+	return p - buf;
+}
+
+/*
+ * Encode TSCredentials { credType [0] INTEGER 1, credentials [1] OCTET STRING }.
+ * The credentials field contains the DER encoding of TSPasswordCreds.
+ */
+static int
+mktscreds(uchar *buf, int nbuf, char *dom, char *user, char *pass)
+{
+	uchar pwdbuf[2048];
+	int pwdlen;
+	int a0body, a0sz, a1octsz, a1sz, seqbody, total;
+	uchar *p;
+
+	pwdlen = mktspasswdcreds(pwdbuf, sizeof pwdbuf, dom, user, pass);
+	if(pwdlen < 0)
+		return -1;
+
+	/* [0] EXPLICIT INTEGER 1 – always 5 bytes: a0 03 02 01 01 */
+	a0body = 3;	/* TagInt(1) + len(1) + value(1) */
+	a0sz = 1 + sizeder(a0body) + a0body;
+
+	/* [1] EXPLICIT OCTET STRING (DER of TSPasswordCreds) */
+	a1octsz = 1 + sizeder(pwdlen) + pwdlen;
+	a1sz = 1 + sizeder(a1octsz) + a1octsz;
+
+	seqbody = a0sz + a1sz;
+	total = 1 + sizeder(seqbody) + seqbody;
+	if(total > nbuf){
+		werrstr("mktscreds: buffer too small");
+		return -1;
+	}
+
+	p = buf;
+	*p++ = BerConstructed|TagSeq; p = putder(p, seqbody);
+	/* [0] credType = 1 (password) */
+	*p++ = BerContext|0; p = putder(p, a0body);
+	*p++ = TagInt; *p++ = 1; *p++ = 1;
+	/* [1] credentials = DER(TSPasswordCreds) */
+	*p++ = BerContext|1; p = putder(p, a1octsz);
+	*p++ = TagOctetString; p = putder(p, pwdlen);
+	memmove(p, pwdbuf, pwdlen); p += pwdlen;
+
+	return p - buf;
+}
+
+/*
+ * Compute the CredSSP v5 client-to-server pubKeyAuth:
+ *   ClientServerHashKey = HMAC_SHA256(sesskey, "CredSSP Client-To-Server Binding Hash\0")
+ *   pubKeyAuth          = HMAC_SHA256(ClientServerHashKey, cnonce || spki)
+ * cnonce is the 32-byte client nonce sent in Phase A.
+ * spki is the SubjectPublicKeyInfo DER from the server's TLS certificate.
+ */
+static int
+mkpubkeyauth(uchar *out, int nout, uchar *sesskey, uchar *cnonce,
+             uchar *spki, int spkilen)
+{
+	uchar hashkey[SHA2_256dlen];
+	DigestState *ds;
+	/* sizeof includes the terminating NUL, which is the explicit \0 in the spec */
+	static char csmagic[] = "CredSSP Client-To-Server Binding Hash";
+
+	if(nout < SHA2_256dlen){
+		werrstr("mkpubkeyauth: buffer too small");
+		return -1;
+	}
+	hmac_sha2_256((uchar*)csmagic, sizeof csmagic, sesskey, MD5dlen, hashkey, nil);
+	ds = hmac_sha2_256(cnonce, 32, hashkey, SHA2_256dlen, nil, nil);
+	hmac_sha2_256(spki, spkilen, hashkey, SHA2_256dlen, out, ds);
+	return SHA2_256dlen;
+}
+
+/*
+ * Build Phase A TSRequest: version + negoTokens + clientNonce [5].
+ * (Same as mktsreq but also includes [5] OCTET STRING clientNonce for CredSSP v5.)
+ */
+static int
+mktsreqA(uchar *buf, int nbuf, uchar *tok, int toklen, uchar *nonce, int noncelen)
+{
+	int octetsz, a0toksz, itemsz, datasz, a1sz, nonceoct, a5sz, bodysz, total;
+	uchar *p;
+
+	octetsz  = 1 + sizeder(toklen) + toklen;
+	a0toksz  = 1 + sizeder(octetsz) + octetsz;
+	itemsz   = 1 + sizeder(a0toksz) + a0toksz;
+	datasz   = 1 + sizeder(itemsz) + itemsz;
+	a1sz     = 1 + sizeder(datasz) + datasz;
+	/* [5] clientNonce OCTET STRING */
+	nonceoct = 1 + sizeder(noncelen) + noncelen;
+	a5sz     = 1 + sizeder(nonceoct) + nonceoct;
+	/* [0] INTEGER CredSSPVer: 5 bytes */
+	bodysz   = 5 + a1sz + a5sz;
+	total    = 1 + sizeder(bodysz) + bodysz;
+
+	if(total > nbuf){
+		werrstr("mktsreqA: buffer too small (%d < %d)", nbuf, total);
+		return -1;
+	}
+
+	p = buf;
+	*p++ = BerConstructed|TagSeq; p = putder(p, bodysz);
+	/* version [0] */
+	*p++ = BerContext|TSSnegoToken; *p++ = 0x03; /* len */
+	*p++ = TagInt; p = putder(p, 1); *p++ = CredSSPVer;
+	/* negoTokens [1] */
+	*p++ = BerContext|TSSnegoTokens; p = putder(p, datasz);
+	*p++ = BerConstructed|TagSeq; p = putder(p, itemsz);
+	*p++ = BerConstructed|TagSeq; p = putder(p, a0toksz);
+	*p++ = BerContext|TSSnegoToken; p = putder(p, octetsz);
+	*p++ = TagOctetString; p = putder(p, toklen);
+	memmove(p, tok, toklen); p += toklen;
+	/* clientNonce [5] */
+	*p++ = BerContext|TSSclientNonce; p = putder(p, nonceoct);
+	*p++ = TagOctetString; p = putder(p, noncelen);
+	memmove(p, nonce, noncelen); p += noncelen;
+
+	return p - buf;
+}
+
+/*
+ * Build Phase E TSRequest: version + authInfo [2] + pubKeyAuth [3].
+ */
+static int
+mktsreqE(uchar *buf, int nbuf, uchar *pubkey, int pubkeylen, uchar *auth, int authlen)
+{
+	int aucoctsz, a2sz, puoctsz, a3sz, bodysz, total;
+	uchar *p;
+
+	/* [2] authInfo OCTET STRING */
+	aucoctsz = 1 + sizeder(authlen) + authlen;
+	a2sz     = 1 + sizeder(aucoctsz) + aucoctsz;
+	/* [3] pubKeyAuth OCTET STRING */
+	puoctsz  = 1 + sizeder(pubkeylen) + pubkeylen;
+	a3sz     = 1 + sizeder(puoctsz) + puoctsz;
+	/* [0] version: 5 bytes */
+	bodysz   = 5 + a2sz + a3sz;
+	total    = 1 + sizeder(bodysz) + bodysz;
+
+	if(total > nbuf){
+		werrstr("mktsreqE: buffer too small (%d < %d)", nbuf, total);
+		return -1;
+	}
+
+	p = buf;
+	*p++ = BerConstructed|TagSeq; p = putder(p, bodysz);
+	/* version [0] */
+	*p++ = BerContext|TSSnegoToken; *p++ = 0x03; /* len */
+	*p++ = TagInt; p = putder(p, 1); *p++ = CredSSPVer;
+	/* authInfo [2] */
+	*p++ = BerContext|TSSauthInfo; p = putder(p, aucoctsz);
+	*p++ = TagOctetString; p = putder(p, authlen);
+	memmove(p, auth, authlen); p += authlen;
+	/* pubKeyAuth [3] */
+	*p++ = BerContext|TSSpubKeyAuth; p = putder(p, puoctsz);
+	*p++ = TagOctetString; p = putder(p, pubkeylen);
+	memmove(p, pubkey, pubkeylen); p += pubkeylen;
+
+	return p - buf;
+}
+
+
  *
  * ASN.1:
  *   TSRequest ::= SEQUENCE {
@@ -379,4 +731,101 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	memmove(p, ntresp, NTRespLen);  p += NTRespLen;		/* NtChallengeResponse */
 
 	return p - buf;
+}
+
+/*
+ * Write Phase A TSRequest (NTLM Negotiate + CredSSP v5 clientNonce) to fd.
+ */
+int
+writetsreqnonce(int fd, uchar *tok, int toklen, uchar *nonce, int noncelen)
+{
+uchar buf[4096];
+int n;
+
+n = mktsreqA(buf, sizeof buf, tok, toklen, nonce, noncelen);
+if(n < 0)
+return -1;
+if(write(fd, buf, n) != n){
+werrstr("NLA: write TSRequest (phase A): %r");
+return -1;
+}
+return 0;
+}
+
+/*
+ * Write Phase E TSRequest (pubKeyAuth + authInfo) to fd.
+ */
+int
+writetsreqdone(int fd, uchar *pubkey, int pubkeylen, uchar *auth, int authlen)
+{
+uchar buf[8192];
+int n;
+
+n = mktsreqE(buf, sizeof buf, pubkey, pubkeylen, auth, authlen);
+if(n < 0)
+return -1;
+if(write(fd, buf, n) != n){
+werrstr("NLA: write TSRequest (phase E): %r");
+return -1;
+}
+return 0;
+}
+
+/*
+ * Complete the CredSSP handshake (Phases D and E).
+ * Phase D: read the server's TSRequest containing pubKeyAuth.
+ * Phase E: send TSRequest with client pubKeyAuth + encrypted TSCredentials.
+ *
+ *   fd      - TLS file descriptor
+ *   cert    - server's TLS certificate DER (for pubKeyAuth channel binding)
+ *   certlen - length of cert
+ *   clnonce - 32-byte client nonce (sent in Phase A, per CredSSP v5)
+ *   dom     - Windows domain (for TSCredentials)
+ *   user    - username (for TSCredentials)
+ *   pass    - plaintext password (session key derivation + TSCredentials)
+ */
+int
+nlafinish(int fd, uchar *cert, int certlen, uchar *clnonce,
+          char *dom, char *user, char *pass)
+{
+uchar tsreqbuf[4096];
+uchar sesskey[MD5dlen], signkey[MD5dlen], sealkey[MD5dlen];
+uchar creds[2048], sealcreds[2048+16];
+uchar pubkeyauth[SHA2_256dlen];
+uchar *spki;
+int n, spkilen;
+
+/* Phase D: read server's pubKeyAuth TSRequest */
+n = readtsreq(fd, tsreqbuf, sizeof tsreqbuf);
+if(n < 0)
+return -1;
+
+/* Derive NTLMv1 ExportedSessionKey, SignKey, SealKey */
+ntsesskey(pass, sesskey);
+ntlmkeys(sesskey, signkey, sealkey);
+
+/* Extract SubjectPublicKeyInfo from server's TLS certificate */
+spki = nil; spkilen = 0;
+if(cert != nil && certlen > 0)
+spki = certspki(cert, certlen, &spkilen);
+if(spki == nil || spkilen <= 0){
+werrstr("NLA: cannot extract server public key from TLS certificate");
+return -1;
+}
+
+n = mkpubkeyauth(pubkeyauth, sizeof pubkeyauth,
+sesskey, clnonce, spki, spkilen);
+if(n < 0)
+return -1;
+
+n = mktscreds(creds, sizeof creds, dom, user, pass);
+if(n < 0)
+return -1;
+
+n = ntlmseal(sealcreds, sizeof sealcreds, signkey, sealkey, 0, creds, n);
+if(n < 0)
+return -1;
+
+/* Phase E: send pubKeyAuth + authInfo (encrypted TSCredentials) */
+return writetsreqdone(fd, pubkeyauth, sizeof pubkeyauth, sealcreds, n);
 }

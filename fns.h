@@ -44,6 +44,9 @@ int		mkntnego(uchar*, int);
 int		getntchal(uchar[8], uchar*, int);
 int		mkntauth(uchar*, int, char*, char*, uchar*, uchar*);
 int		writetsreq(int, uchar*, int);
+int		writetsreqnonce(int, uchar*, int, uchar*, int);
+int		writetsreqdone(int, uchar*, int, uchar*, int);
+int		nlafinish(int, uchar*, int, uchar*, char*, char*, char*);
 int		readtsreq(int, uchar*, int);
 uchar*	gettsreq(uchar*, int, int*);
 

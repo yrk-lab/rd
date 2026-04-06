@@ -52,6 +52,8 @@ struct Rdp
 	char		*rwd;		/* remote working directory */
 	char		*keyspec;		/* factotum key spec */
 	int		nla;			/* use NLA (CredSSP/NTLM) authentication */
+	uchar		*tlscert;		/* TLS server certificate DER (for CredSSP pubKeyAuth) */
+	int		tlscertlen;
 	int		xsz;			/* rfb dimensions */
 	int		ysz;			/* rfb dimensions */
 	int		depth;		/* rfb color depth */

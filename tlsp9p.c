@@ -30,6 +30,13 @@ starttls(Rdp* r)
 		close(sfd);
 		return -1;
 	}
+	if(c.cert != nil && c.certlen > 0){
+		r->tlscert = malloc(c.certlen);
+		if(r->tlscert != nil){
+			memmove(r->tlscert, c.cert, c.certlen);
+			r->tlscertlen = c.certlen;
+		}
+	}
 	/* BUG: free c.cert? */
 
 	close(r->fd);
