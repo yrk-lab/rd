@@ -795,15 +795,19 @@ uchar *spki;
 int n, spkilen;
 
 /* Phase D: read server's pubKeyAuth TSRequest */
+fprint(2, "nla: reading Phase D (server pubKeyAuth)\n");
 n = readtsreq(fd, tsreqbuf, sizeof tsreqbuf);
 if(n < 0)
 return -1;
+fprint(2, "nla: Phase D received (%d bytes)\n", n);
 
 /* Derive NTLMv1 ExportedSessionKey, SignKey, SealKey */
+fprint(2, "nla: deriving session/sign/seal keys\n");
 ntsesskey(pass, sesskey);
 ntlmkeys(sesskey, signkey, sealkey);
 
 /* Extract SubjectPublicKeyInfo from server's TLS certificate */
+fprint(2, "nla: extracting server SubjectPublicKeyInfo (certlen=%d)\n", certlen);
 spki = nil; spkilen = 0;
 if(cert != nil && certlen > 0)
 spki = certspki(cert, certlen, &spkilen);
@@ -811,20 +815,27 @@ if(spki == nil || spkilen <= 0){
 werrstr("NLA: cannot extract server public key from TLS certificate");
 return -1;
 }
+fprint(2, "nla: SPKI extracted (%d bytes)\n", spkilen);
 
 n = mkpubkeyauth(pubkeyauth, sizeof pubkeyauth,
 sesskey, clnonce, spki, spkilen);
 if(n < 0)
 return -1;
+fprint(2, "nla: pubKeyAuth computed (%d bytes)\n", n);
 
 n = mktscreds(creds, sizeof creds, dom, user, pass);
 if(n < 0)
 return -1;
+fprint(2, "nla: TSCredentials encoded (%d bytes)\n", n);
 
 n = ntlmseal(sealcreds, sizeof sealcreds, signkey, sealkey, 0, creds, n);
 if(n < 0)
 return -1;
+fprint(2, "nla: authInfo sealed (%d bytes)\n", n);
 
 /* Phase E: send pubKeyAuth + authInfo (encrypted TSCredentials) */
-return writetsreqdone(fd, pubkeyauth, sizeof pubkeyauth, sealcreds, n);
+fprint(2, "nla: sending Phase E (pubKeyAuth + authInfo)\n");
+n = writetsreqdone(fd, pubkeyauth, sizeof pubkeyauth, sealcreds, n);
+fprint(2, "nla: Phase E sent (result=%d)\n", n);
+return n;
 }

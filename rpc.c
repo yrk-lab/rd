@@ -71,13 +71,16 @@ nlahandshake(Rdp *c)
 	genrandom(clnonce, sizeof clnonce);
 
 	/* Phase A: NTLM Negotiate (includes clientNonce for CredSSP v5) */
+	fprint(2, "nla: sending Phase A (NTLM Negotiate)\n");
 	n = mkntnego(ntnego, sizeof ntnego);
 	if(n < 0)
 		return -1;
 	if(writetsreqnonce(c->fd, ntnego, n, clnonce, sizeof clnonce) < 0)
 		return -1;
+	fprint(2, "nla: Phase A sent (%d byte token)\n", n);
 
 	/* Phase B: NTLM Challenge */
+	fprint(2, "nla: reading Phase B (NTLM Challenge)\n");
 	n = readtsreq(c->fd, tsreqbuf, sizeof tsreqbuf);
 	if(n < 0)
 		return -1;
@@ -87,6 +90,7 @@ nlahandshake(Rdp *c)
 	if(getntchal(challenge, ntp, ntlen) < 0)
 		return -1;
 
+	fprint(2, "nla: Phase B received (%d byte TSRequest, %d byte token)\n", n, ntlen);
 	/* Debug: dump the raw NTLM Challenge packet */
 	fprint(2, "ntlm challenge (%d bytes):", ntlen);
 	for(i = 0; i < ntlen; i++)
@@ -151,14 +155,18 @@ nlahandshake(Rdp *c)
 	 * factotum mschap returns MSchapreply: LMresp[24] at [0], NTresp[24] at [24].
 	 * For ESS, use the pre-built lmresp (cnonce+zeros); otherwise use factotum's LMresp.
 	 */
+	fprint(2, "nla: calling factotum mschap (user=%s, dom=%s)\n", c->user, dom);
+	fprint(2, "nla: sending Phase C (NTLM Authenticate)\n");
 	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, lmrespptr != nil ? lmrespptr : ntresp);
 	if(n < 0)
 		return -1;
 	if(writetsreq(c->fd, ntauth, n) < 0)
 		return -1;
+	fprint(2, "nla: Phase C sent (%d byte token)\n", n);
 
 	/* Get password for session key derivation and TSCredentials.
 	 * Try proto=pass first (preferred), then fall back to -p value. */
+	fprint(2, "nla: retrieving password for credential delegation\n");
 	pass[0] = '\0';
 	up = auth_getuserpasswd(auth_getkey, "proto=pass service=rdp %s", c->keyspec);
 	if(up != nil){
@@ -173,6 +181,7 @@ nlahandshake(Rdp *c)
 			"add 'proto=pass service=rdp' key to factotum or use -p");
 		return -1;
 	}
+	fprint(2, "nla: password obtained, calling nlafinish\n");
 
 	/* Phases D and E: read server pubKeyAuth, send TSCredentials */
 	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, clnonce, dom, c->user, pass);
