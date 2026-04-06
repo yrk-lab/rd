@@ -60,9 +60,9 @@ nlahandshake(Rdp *c)
 	uchar challenge[8], chal[8], ntresp[64];
 	uchar cnonce[8], tmp[16], md5out[MD5dlen];
 	uchar lmresp[24], *lmrespptr;	/* LmChallengeResponse is 24 bytes */
-	char user[256];
+	char user[256], domfromchal[256], *dom;
 	uchar *ntp;
-	int n, ntlen, nresp, i;
+	int n, ntlen, nresp, i, tlen, toff;
 	long srvflags;
 
 	/* Phase A: NTLM Negotiate */
@@ -106,6 +106,18 @@ nlahandshake(Rdp *c)
 		lmrespptr = lmresp;
 	}
 
+	/* Use TargetName from Challenge as domain if none was specified */
+	dom = c->windom;
+	if(*dom == '\0' && ntlen >= 20){
+		tlen = GSHORT(ntp+12);
+		toff = GLONG(ntp+16);
+		if(tlen > 0 && toff >= 0 && tlen <= ntlen - toff){
+			n = fromutf16(domfromchal, sizeof(domfromchal)-1, ntp+toff, tlen);
+			domfromchal[n] = '\0';
+			dom = domfromchal;
+		}
+	}
+
 	/* Ask factotum to compute the NT response for this challenge */
 	user[0] = '\0';
 	nresp = auth_respond(chal, 8,
@@ -130,7 +142,7 @@ nlahandshake(Rdp *c)
 	}
 
 	/* Phase C: NTLM Authenticate */
-	n = mkntauth(ntauth, sizeof ntauth, c->user, c->windom, ntresp, lmrespptr);
+	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp, lmrespptr);
 	if(n < 0)
 		return -1;
 	if(writetsreq(c->fd, ntauth, n) < 0)
