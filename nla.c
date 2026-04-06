@@ -24,13 +24,13 @@
 enum
 {
 	/* NTLM NegotiateFlags (subset used here) */
-	NfUnicode	= 0x00000001,	/* NTLMSSP_NEGOTIATE_UNICODE */
-	NfReqTarget	= 0x00000004,	/* NTLMSSP_REQUEST_TARGET */
-	NfSign		= 0x00000010,	/* NTLMSSP_NEGOTIATE_SIGN */
-	NfSeal		= 0x00000020,	/* NTLMSSP_NEGOTIATE_SEAL */
-	NfNTLM		= 0x00000200,	/* NTLMSSP_NEGOTIATE_NTLM */
-	NfAlwaysSign	= 0x00008000,	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
-	NfESS		= 0x00080000,	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
+	NfUnicode	= (1<<0),	/* NTLMSSP_NEGOTIATE_UNICODE */
+	NfReqTarget	= (1<<2),	/* NTLMSSP_REQUEST_TARGET */
+	NfSign		= (1<<4),	/* NTLMSSP_NEGOTIATE_SIGN */
+	NfSeal		= (1<<5),	/* NTLMSSP_NEGOTIATE_SEAL */
+	NfNTLM		= (1<<9),	/* NTLMSSP_NEGOTIATE_NTLM */
+	NfAlwaysSign	= (1<<15),	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
+	NfESS		= (1<<19),	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
 
 	/* NTLM response size (NTLMv1) */
 	NTRespLen	= 24,
@@ -56,8 +56,8 @@ enum
 	TSSpubKeyAuth	= 3,	/* TSRequest [3] pubKeyAuth field */
 	TSSclientNonce	= 5,	/* TSRequest [5] clientNonce field (version 5+) */
 
-	/* CredSSP version advertised in TSRequest (v2 = minimum, max compatibility) */
-	CredSSPVer	= 2,
+	/* CredSSP version advertised in TSRequest (v5 = required by Windows 10+) */
+	CredSSPVer	= 5,
 };
 
 static int
@@ -905,27 +905,26 @@ return 0;
 }
 
 /*
- * Complete the CredSSP handshake (Phases D and E).
+ * Complete the CredSSP v5 handshake (Phases D and E).
  * Phase D: read the server's TSRequest containing pubKeyAuth.
  * Phase E: send TSRequest with client pubKeyAuth + encrypted TSCredentials.
  *
  *   fd      - TLS file descriptor
  *   cert    - server's TLS certificate DER (for pubKeyAuth channel binding)
  *   certlen - length of cert
- *   clnonce - 32-byte client nonce (sent in Phase A, per CredSSP v5)
+ *   cnonce  - 32-byte client nonce sent in Phase A (CredSSP v5)
  *   dom     - Windows domain (for TSCredentials)
  *   user    - username (for TSCredentials)
  *   pass    - plaintext password (session key derivation + TSCredentials)
  */
 int
-nlafinish(int fd, uchar *cert, int certlen,
+nlafinish(int fd, uchar *cert, int certlen, uchar *cnonce,
           char *dom, char *user, char *pass)
 {
 uchar tsreqbuf[4096];
 uchar sesskey[MD5dlen], signkey[MD5dlen], sealkey[MD5dlen];
 uchar creds[2048], sealcreds[2048+16];
-uchar pubkeyauth[2048+16];  /* NTLM EncryptMessage: 16-byte sig + SPKI */
-uchar spkibuf[2048];
+uchar pubkeyauth[SHA2_256dlen];
 uchar *spki;
 int n, spkilen, pubkeyauthlen;
 
@@ -953,18 +952,11 @@ return -1;
 fprint(2, "nla: SPKI extracted (%d bytes)\n", spkilen);
 
 /*
- * CredSSP v2 Phase E pubKeyAuth:
- * increment the first byte of SPKI by 1 and encrypt with NTLM EncryptMessage (seqno=0).
- * This proves to the server that we hold the same NTLM session key.
+ * CredSSP v5 Phase E pubKeyAuth (MS-CSSP §3.1.5.1.1.1):
+ *   ClientServerHashKey = HMAC_SHA256(sesskey, "CredSSP Client-To-Server Binding Hash\0")
+ *   pubKeyAuth = HMAC_SHA256(ClientServerHashKey, cnonce || SPKI)
  */
-if(spkilen > (int)sizeof spkibuf){
-werrstr("NLA: SPKI too large (%d)", spkilen);
-return -1;
-}
-memmove(spkibuf, spki, spkilen);
-spkibuf[0]++;	/* increment first byte by 1 (MS-CSSP §3.1.5.1.1.1) */
-pubkeyauthlen = ntlmseal(pubkeyauth, sizeof pubkeyauth,
-	signkey, sealkey, 0, spkibuf, spkilen);
+pubkeyauthlen = mkpubkeyauth(pubkeyauth, sizeof pubkeyauth, sesskey, cnonce, spki, spkilen);
 if(pubkeyauthlen < 0)
 return -1;
 fprint(2, "nla: pubKeyAuth computed (%d bytes)\n", pubkeyauthlen);
@@ -974,7 +966,8 @@ if(n < 0)
 return -1;
 fprint(2, "nla: TSCredentials encoded (%d bytes)\n", n);
 
-n = ntlmseal(sealcreds, sizeof sealcreds, signkey, sealkey, 1, creds, n);
+/* authInfo uses seqno=0 in CredSSP v5 (pubKeyAuth is HMAC, not EncryptMessage) */
+n = ntlmseal(sealcreds, sizeof sealcreds, signkey, sealkey, 0, creds, n);
 if(n < 0)
 return -1;
 fprint(2, "nla: authInfo sealed (%d bytes)\n", n);
