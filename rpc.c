@@ -129,7 +129,7 @@ nlahandshake(Rdp *c)
 		werrstr("factotum mschap: %r");
 		return -1;
 	}
-	if(nresp < 24){ /* NTRespLen */
+	if(nresp < 2*24){ /* sizeof(MSchapreply) = LMresp[24] + NTresp[24] */
 		werrstr("factotum mschap: response too short (%d)", nresp);
 		return -1;
 	}
@@ -142,7 +142,11 @@ nlahandshake(Rdp *c)
 	}
 
 	/* Phase C: NTLM Authenticate */
-	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp, lmrespptr);
+	/*
+	 * factotum mschap returns MSchapreply: LMresp[24] at [0], NTresp[24] at [24].
+	 * For ESS, use the pre-built lmresp (cnonce+zeros); otherwise use factotum's LMresp.
+	 */
+	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, lmrespptr != nil ? lmrespptr : ntresp);
 	if(n < 0)
 		return -1;
 	if(writetsreq(c->fd, ntauth, n) < 0)

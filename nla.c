@@ -372,9 +372,9 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */
 	memmove(p, usr16, usrlen);  p += usrlen;		/* UserName */
 	if(lmresp != nil)
-		memmove(p, lmresp, lmlen);			/* ESS: client_nonce || zeros */
+		memmove(p, lmresp, lmlen);			/* ESS: cnonce||zeros; NTLMv1: factotum LMresp */
 	else
-		memset(p, 0, lmlen);				/* NTLMv1: all zeros */
+		memset(p, 0, lmlen);				/* fallback: all zeros */
 	p += lmlen;
 	memmove(p, ntresp, NTRespLen);  p += NTRespLen;		/* NtChallengeResponse */
 
