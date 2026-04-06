@@ -26,8 +26,6 @@ enum
 	/* NTLM NegotiateFlags (subset used here) */
 	NfUnicode	= (1<<0),	/* NTLMSSP_NEGOTIATE_UNICODE */
 	NfReqTarget	= (1<<2),	/* NTLMSSP_REQUEST_TARGET */
-	NfSign		= (1<<4),	/* NTLMSSP_NEGOTIATE_SIGN */
-	NfSeal		= (1<<5),	/* NTLMSSP_NEGOTIATE_SEAL */
 	NfNTLM		= (1<<9),	/* NTLMSSP_NEGOTIATE_NTLM */
 	NfAlwaysSign	= (1<<15),	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
 	NfESS		= (1<<19),	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
@@ -758,7 +756,7 @@ mkntnego(uchar *buf, int nbuf)
 	p = buf;
 	memmove(p, "NTLMSSP\0", 8);	p += 8;
 	PLONG(p, 1);			p += 4;		/* MessageType */
-	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfSign|NfSeal|NfAlwaysSign);	p += 4;		/* NegotiateFlags */
+	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign);	p += 4;		/* NegotiateFlags */
 	memset(p, 0, 8);		p += 8;		/* DomainNameFields (empty) */
 	memset(p, 0, 8);		p += 8;		/* WorkstationFields (empty) */
 	return p - buf;
@@ -851,7 +849,7 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	p += 8;
 
 	/* NegotiateFlags */
-	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfSign|NfSeal|NfAlwaysSign | (lmresp != nil ? NfESS : 0));  p += 4;
+	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign | (lmresp != nil ? NfESS : 0));  p += 4;
 
 	/* payload */
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */
