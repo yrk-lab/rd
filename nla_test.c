@@ -127,7 +127,7 @@ testgetntchalbadtype(void)
  * single-byte NTLM token (0xAA).
  *
  *   30 10  SEQUENCE(16)
- *     a0 03 02 01 05  [0] version=5
+ *     a0 03 02 01 02  [0] version=2 (CredSSPVer)
  *     a1 09  [1] negoTokens(9)
  *       30 07  SEQUENCE OF(7)
  *         30 05  SEQUENCE(5)
@@ -140,7 +140,7 @@ testmktsreqhdr(void)
 	uchar token[] = {0xAA};
 	uchar want[] = {
 		0x30, 0x10,
-		0xa0, 0x03, 0x02, 0x01, 0x05,
+		0xa0, 0x03, 0x02, 0x01, CredSSPVer,
 		0xa1, 0x09,
 		0x30, 0x07,
 		0x30, 0x05,
