@@ -196,7 +196,7 @@ ntlmdes(uchar *key7, uchar chal[8], uchar out[8])
 	des7to8(key7, key8);
 	setupDESstate(&ds, key8, nil);
 	memmove(out, chal, 8);
-	des_ecb_encrypt(out, 8, &ds);
+	desECBencrypt(out, 8, &ds);
 }
 
 /*
