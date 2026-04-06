@@ -61,6 +61,7 @@ nlahandshake(Rdp *c)
 	uchar esscnonce[8], tmp[16], md5out[MD5dlen];
 	uchar lmresp[24], *lmrespptr;	/* LmChallengeResponse is 24 bytes */
 	uchar clnonce[32];		/* CredSSP v5 client nonce */
+	uchar ntresp_direct[24], *nt_for_auth, *lm_for_auth;
 	char user[256], domfromchal[256], pass[256], *dom;
 	uchar *ntp;
 	int n, ntlen, nresp, i, tlen, toff;
@@ -127,25 +128,66 @@ nlahandshake(Rdp *c)
 		}
 	}
 
-	/* Ask factotum to compute the NT response for this challenge */
-	fprint(2, "nla: calling factotum mschap (keyspec=%s, dom=%s)\n", c->keyspec, dom);
+	/*
+	 * Get password for NT response and credential delegation.
+	 * Try proto=pass first, then the -p flag.
+	 * If a password is available we compute the NT response directly
+	 * (DESL(MD4(UNICODE(pass)), chal)) which avoids needing a separate
+	 * proto=mschap key in factotum.  If no password, fall back to
+	 * auth_respond with proto=mschap.
+	 */
+	fprint(2, "nla: retrieving password (keyspec=%s)\n", c->keyspec);
 	user[0] = '\0';
-	nresp = auth_respond(chal, 8,
-		user, sizeof(user)-1,
-		ntresp, sizeof(ntresp),
-		auth_getkey,
-		"proto=mschap role=client service=rdp %s", c->keyspec);
-	if(nresp < 0){
-		werrstr("factotum mschap: %r");
-		return -1;
+	pass[0] = '\0';
+	up = auth_getuserpasswd(auth_getkey, "proto=pass service=rdp %s", c->keyspec);
+	if(up != nil){
+		if(up->user != nil)
+			snprint(user, sizeof user, "%s", up->user);
+		if(up->passwd != nil)
+			snprint(pass, sizeof pass, "%s", up->passwd);
+		free(up);
 	}
-	if(nresp < 2*24){ /* sizeof(MSchapreply) = LMresp[24] + NTresp[24] */
-		werrstr("factotum mschap: response too short (%d)", nresp);
-		return -1;
+	if(pass[0] == '\0' && c->passwd != nil && c->passwd[0] != '\0'){
+		snprint(pass, sizeof pass, "%s", c->passwd);
+		if(user[0] == '\0' && c->user != nil && c->user[0] != '\0')
+			snprint(user, sizeof user, "%s", c->user);
 	}
-	fprint(2, "nla: factotum returned user=%s nresp=%d\n", user, nresp);
 
-	/* Use the user name returned by factotum if we don't have one */
+	if(pass[0] != '\0'){
+		/* Compute NT response directly from password */
+		fprint(2, "nla: computing NT response from password (user=%s, dom=%s)\n", user, dom);
+		ntrespfrompasswd(pass, chal, ntresp_direct);
+		nt_for_auth = ntresp_direct;
+		/* LM response: ESS uses cnonce+zeros; non-ESS uses zeros */
+		if(lmrespptr != nil)
+			lm_for_auth = lmrespptr;
+		else{
+			memset(lmresp, 0, sizeof lmresp);
+			lm_for_auth = lmresp;
+		}
+	}else{
+		/* Fall back to factotum mschap */
+		fprint(2, "nla: calling factotum mschap (keyspec=%s, dom=%s)\n", c->keyspec, dom);
+		nresp = auth_respond(chal, 8,
+			user, sizeof(user)-1,
+			ntresp, sizeof(ntresp),
+			auth_getkey,
+			"proto=mschap role=client service=rdp %s", c->keyspec);
+		if(nresp < 0){
+			werrstr("factotum mschap: %r");
+			return -1;
+		}
+		if(nresp < 2*24){ /* sizeof(MSchapreply) = LMresp[24] + NTresp[24] */
+			werrstr("factotum mschap: response too short (%d)", nresp);
+			return -1;
+		}
+		fprint(2, "nla: factotum returned user=%s nresp=%d\n", user, nresp);
+		/* factotum mschap returns MSchapreply: LMresp[24] at [0], NTresp[24] at [24] */
+		nt_for_auth = ntresp + 24;
+		lm_for_auth = (lmrespptr != nil) ? lmrespptr : ntresp;
+	}
+
+	/* Propagate user name if not yet set on the connection */
 	if(user[0] != '\0' && c->user[0] == '\0'){
 		c->user = strdup(user);
 		if(c->user == nil)
@@ -153,30 +195,14 @@ nlahandshake(Rdp *c)
 	}
 
 	/* Phase C: NTLM Authenticate */
-	/*
-	 * factotum mschap returns MSchapreply: LMresp[24] at [0], NTresp[24] at [24].
-	 * For ESS, use the pre-built lmresp (cnonce+zeros); otherwise use factotum's LMresp.
-	 */
 	fprint(2, "nla: sending Phase C (NTLM Authenticate, user=%s, dom=%s)\n", c->user, dom);
-	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, lmrespptr != nil ? lmrespptr : ntresp);
+	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, nt_for_auth, lm_for_auth);
 	if(n < 0)
 		return -1;
 	if(writetsreq(c->fd, ntauth, n) < 0)
 		return -1;
 	fprint(2, "nla: Phase C sent (%d byte token)\n", n);
 
-	/* Get password for session key derivation and TSCredentials.
-	 * Try proto=pass first (preferred), then fall back to -p value. */
-	fprint(2, "nla: retrieving password (keyspec=%s)\n", c->keyspec);
-	pass[0] = '\0';
-	up = auth_getuserpasswd(auth_getkey, "proto=pass service=rdp %s", c->keyspec);
-	if(up != nil){
-		if(up->passwd != nil)
-			snprint(pass, sizeof pass, "%s", up->passwd);
-		free(up);
-	}
-	if(pass[0] == '\0' && c->passwd != nil && c->passwd[0] != '\0')
-		snprint(pass, sizeof pass, "%s", c->passwd);
 	if(pass[0] == '\0'){
 		werrstr("NLA: no password for credential delegation; "
 			"add 'proto=pass service=rdp' key to factotum or use -p");

@@ -167,6 +167,67 @@ ntsesskey(char *pass, uchar sesskey[MD5dlen])
 }
 
 /*
+ * Expand a 7-byte NTLM DES key to 8 bytes by inserting parity bits.
+ */
+static void
+des7to8(uchar key7[7], uchar key8[8])
+{
+	key8[0] =  key7[0]                    & 0xfe;
+	key8[1] = ((key7[0]<<7)|(key7[1]>>1)) & 0xfe;
+	key8[2] = ((key7[1]<<6)|(key7[2]>>2)) & 0xfe;
+	key8[3] = ((key7[2]<<5)|(key7[3]>>3)) & 0xfe;
+	key8[4] = ((key7[3]<<4)|(key7[4]>>4)) & 0xfe;
+	key8[5] = ((key7[4]<<3)|(key7[5]>>5)) & 0xfe;
+	key8[6] = ((key7[5]<<2)|(key7[6]>>6)) & 0xfe;
+	key8[7] = (key7[6]<<1)                & 0xfe;
+}
+
+/*
+ * Apply DES-ECB to an 8-byte block using a 7-byte (56-bit) NTLM DES key.
+ * DES is mandated by MS-NLMP §3.3.1 (DESL function) and cannot be avoided
+ * in NTLMv1; this is a known protocol weakness.
+ */
+static void
+ntlmdes(uchar *key7, uchar chal[8], uchar out[8])
+{
+	DESstate ds;
+	uchar key8[8];
+
+	des7to8(key7, key8);
+	setupDESstate(&ds, key8, nil);
+	memmove(out, chal, 8);
+	des_ecb_encrypt(out, 8, &ds);
+}
+
+/*
+ * Compute the 24-byte NTLMv1 NT response from a plaintext password and
+ * challenge.  Implements DESL(MD4(UNICODE(pass)), chal) per MS-NLMP §3.3.1.
+ * ntresp must be at least 24 bytes.
+ */
+void
+ntrespfrompasswd(char *pass, uchar chal[8], uchar ntresp[24])
+{
+	Rune r;
+	int i, n;
+	uchar *w, unipass[256], nthash[MD4dlen], padded[21];
+
+	n = strlen(pass);
+	if(n > 128)	/* 128 chars × 2 bytes UTF-16 = 256 byte unipass[] */
+		n = 128;
+	for(i = 0, w = unipass; i < n; i++){
+		pass += chartorune(&r, pass);
+		*w++ = r & 0xff;
+		*w++ = r >> 8;
+	}
+	md4(unipass, w - unipass, nthash, nil);
+	memset(padded, 0, sizeof padded);
+	memmove(padded, nthash, MD4dlen);
+	ntlmdes(padded+0,  chal, ntresp+0);
+	ntlmdes(padded+7,  chal, ntresp+8);
+	ntlmdes(padded+14, chal, ntresp+16);
+}
+
+/*
  * Derive NTLM SignKey and SealKey from the ExportedSessionKey (MS-NLMP).
  * Magic strings include the explicit NUL terminator per spec.
  */
