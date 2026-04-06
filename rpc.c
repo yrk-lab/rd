@@ -62,7 +62,7 @@ nlahandshake(Rdp *c)
 	uchar lmresp[24], *lmrespptr;	/* LmChallengeResponse is 24 bytes */
 	char user[256];
 	uchar *ntp;
-	int n, ntlen, nresp;
+	int n, ntlen, nresp, i;
 	long srvflags;
 
 	/* Phase A: NTLM Negotiate */
@@ -81,6 +81,12 @@ nlahandshake(Rdp *c)
 		return -1;
 	if(getntchal(challenge, ntp, ntlen) < 0)
 		return -1;
+
+	/* Debug: dump the raw NTLM Challenge packet */
+	fprint(2, "ntlm challenge (%d bytes):", ntlen);
+	for(i = 0; i < ntlen; i++)
+		fprint(2, " %02ux", ntp[i]);
+	fprint(2, "\n");
 
 	/* Check if server requested Extended Session Security (ESS/NTLMv1-ESS) */
 	srvflags = (ntlen >= 24) ? (long)GLONG(ntp+20) : 0;
