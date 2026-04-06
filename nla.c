@@ -201,7 +201,7 @@ ntlmseal(uchar *out, int nout, uchar *signkey, uchar *sealkey,
 		return -1;
 	}
 	/* Encrypt message using SealKey; RC4 state advances */
-	rc4init(&h, sealkey, MD5dlen);
+	setupRC4state(&h, sealkey, MD5dlen);
 	memmove(out+16, msg, nmsg);
 	rc4(&h, out+16, nmsg);
 
@@ -429,8 +429,7 @@ mktsreqE(uchar *buf, int nbuf, uchar *pubkey, int pubkeylen, uchar *auth, int au
 	return p - buf;
 }
 
-
- *
+/*
  * ASN.1:
  *   TSRequest ::= SEQUENCE {
  *     version    [0] INTEGER,
