@@ -26,6 +26,8 @@ enum
 	/* NTLM NegotiateFlags (subset used here) */
 	NfUnicode	= 0x00000001,	/* NTLMSSP_NEGOTIATE_UNICODE */
 	NfReqTarget	= 0x00000004,	/* NTLMSSP_REQUEST_TARGET */
+	NfSign		= 0x00000010,	/* NTLMSSP_NEGOTIATE_SIGN */
+	NfSeal		= 0x00000020,	/* NTLMSSP_NEGOTIATE_SEAL */
 	NfNTLM		= 0x00000200,	/* NTLMSSP_NEGOTIATE_NTLM */
 	NfAlwaysSign	= 0x00008000,	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
 	NfESS		= 0x00080000,	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
@@ -54,8 +56,8 @@ enum
 	TSSpubKeyAuth	= 3,	/* TSRequest [3] pubKeyAuth field */
 	TSSclientNonce	= 5,	/* TSRequest [5] clientNonce field (version 5+) */
 
-	/* CredSSP version advertised in TSRequest */
-	CredSSPVer	= 5,
+	/* CredSSP version advertised in TSRequest (v2 = minimum, max compatibility) */
+	CredSSPVer	= 2,
 };
 
 static int
@@ -685,7 +687,7 @@ mkntnego(uchar *buf, int nbuf)
 	p = buf;
 	memmove(p, "NTLMSSP\0", 8);	p += 8;
 	PLONG(p, 1);			p += 4;		/* MessageType */
-	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign);	p += 4;		/* NegotiateFlags */
+	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfSign|NfSeal|NfAlwaysSign);	p += 4;		/* NegotiateFlags */
 	memset(p, 0, 8);		p += 8;		/* DomainNameFields (empty) */
 	memset(p, 0, 8);		p += 8;		/* WorkstationFields (empty) */
 	return p - buf;
@@ -778,7 +780,7 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	p += 8;
 
 	/* NegotiateFlags */
-	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign | (lmresp != nil ? NfESS : 0));  p += 4;
+	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfSign|NfSeal|NfAlwaysSign | (lmresp != nil ? NfESS : 0));  p += 4;
 
 	/* payload */
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */
@@ -845,15 +847,16 @@ return 0;
  *   pass    - plaintext password (session key derivation + TSCredentials)
  */
 int
-nlafinish(int fd, uchar *cert, int certlen, uchar *clnonce,
+nlafinish(int fd, uchar *cert, int certlen,
           char *dom, char *user, char *pass)
 {
 uchar tsreqbuf[4096];
 uchar sesskey[MD5dlen], signkey[MD5dlen], sealkey[MD5dlen];
 uchar creds[2048], sealcreds[2048+16];
-uchar pubkeyauth[SHA2_256dlen];
+uchar pubkeyauth[2048+16];  /* NTLM EncryptMessage: 16-byte sig + SPKI */
+uchar spkibuf[2048];
 uchar *spki;
-int n, spkilen;
+int n, spkilen, pubkeyauthlen;
 
 /* Phase D: read server's pubKeyAuth TSRequest */
 fprint(2, "nla: reading Phase D (server pubKeyAuth)\n");
@@ -878,25 +881,36 @@ return -1;
 }
 fprint(2, "nla: SPKI extracted (%d bytes)\n", spkilen);
 
-n = mkpubkeyauth(pubkeyauth, sizeof pubkeyauth,
-sesskey, clnonce, spki, spkilen);
-if(n < 0)
+/*
+ * CredSSP v2 Phase E pubKeyAuth:
+ * increment the first byte of SPKI by 1 and encrypt with NTLM EncryptMessage (seqno=0).
+ * This proves to the server that we hold the same NTLM session key.
+ */
+if(spkilen > (int)sizeof spkibuf){
+werrstr("NLA: SPKI too large (%d)", spkilen);
 return -1;
-fprint(2, "nla: pubKeyAuth computed (%d bytes)\n", n);
+}
+memmove(spkibuf, spki, spkilen);
+spkibuf[0]++;	/* increment first byte by 1 (MS-CSSP §3.1.5.1.1.1) */
+pubkeyauthlen = ntlmseal(pubkeyauth, sizeof pubkeyauth,
+	signkey, sealkey, 0, spkibuf, spkilen);
+if(pubkeyauthlen < 0)
+return -1;
+fprint(2, "nla: pubKeyAuth computed (%d bytes)\n", pubkeyauthlen);
 
 n = mktscreds(creds, sizeof creds, dom, user, pass);
 if(n < 0)
 return -1;
 fprint(2, "nla: TSCredentials encoded (%d bytes)\n", n);
 
-n = ntlmseal(sealcreds, sizeof sealcreds, signkey, sealkey, 0, creds, n);
+n = ntlmseal(sealcreds, sizeof sealcreds, signkey, sealkey, 1, creds, n);
 if(n < 0)
 return -1;
 fprint(2, "nla: authInfo sealed (%d bytes)\n", n);
 
 /* Phase E: send pubKeyAuth + authInfo (encrypted TSCredentials) */
 fprint(2, "nla: sending Phase E (pubKeyAuth + authInfo)\n");
-n = writetsreqdone(fd, pubkeyauth, sizeof pubkeyauth, sealcreds, n);
+n = writetsreqdone(fd, pubkeyauth, pubkeyauthlen, sealcreds, n);
 fprint(2, "nla: Phase E sent (result=%d)\n", n);
 return n;
 }

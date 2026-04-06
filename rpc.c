@@ -60,7 +60,6 @@ nlahandshake(Rdp *c)
 	uchar challenge[8], chal[8], ntresp[64], tsreqbuf[4096];
 	uchar esscnonce[8], tmp[16], md5out[MD5dlen];
 	uchar lmresp[24], *lmrespptr;	/* LmChallengeResponse is 24 bytes */
-	uchar clnonce[32];		/* CredSSP v5 client nonce */
 	uchar ntresp_direct[24], *nt_for_auth, *lm_for_auth;
 	char user[256], domfromchal[256], pass[256], *dom;
 	uchar *ntp;
@@ -68,15 +67,12 @@ nlahandshake(Rdp *c)
 	long srvflags;
 	UserPasswd *up;
 
-	/* Generate CredSSP v5 client nonce (32 bytes random) */
-	genrandom(clnonce, sizeof clnonce);
-
-	/* Phase A: NTLM Negotiate (includes clientNonce for CredSSP v5) */
+	/* Phase A: NTLM Negotiate (CredSSP v2, no clientNonce) */
 	fprint(2, "nla: sending Phase A (NTLM Negotiate)\n");
 	n = mkntnego(ntnego, sizeof ntnego);
 	if(n < 0)
 		return -1;
-	if(writetsreqnonce(c->fd, ntnego, n, clnonce, sizeof clnonce) < 0)
+	if(writetsreq(c->fd, ntnego, n) < 0)
 		return -1;
 	fprint(2, "nla: Phase A sent (%d byte token)\n", n);
 
@@ -211,7 +207,7 @@ nlahandshake(Rdp *c)
 	fprint(2, "nla: password obtained (%d chars), calling nlafinish\n", (int)strlen(pass));
 
 	/* Phases D and E: read server pubKeyAuth, send TSCredentials */
-	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, clnonce, dom, c->user, pass);
+	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, dom, c->user, pass);
 	memset(pass, 0, sizeof pass);
 	return n;
 }
