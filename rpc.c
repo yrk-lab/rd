@@ -186,6 +186,12 @@ nlahandshake(Rdp *c)
 			ntv2resp, sizeof ntv2resp, lmv2resp, sesskey);
 		if(ntv2len < 0)
 			return -1;
+		fprint(2, "nla: ExportedSessionKey:");
+		for(i = 0; i < MD5dlen; i++) fprint(2, " %02ux", sesskey[i]);
+		fprint(2, "\n");
+		fprint(2, "nla: ntnego (%d bytes):", nnego);
+		for(i = 0; i < nnego; i++) fprint(2, " %02ux", ntnego[i]);
+		fprint(2, "\n");
 	}else{
 		/* Fall back to factotum mschap (NTLMv1; credential delegation will fail) */
 		fprint(2, "nla: calling factotum mschap (keyspec=%s, dom=%s)\n", c->keyspec, dom);
@@ -233,6 +239,12 @@ nlahandshake(Rdp *c)
 			mds = hmac_md5(ntp, ntlen, sesskey, MD5dlen, nil, mds);
 			hmac_md5(ntauth, n, sesskey, MD5dlen, ntauth+72, mds);
 		}
+		fprint(2, "nla: MIC:");
+		for(i = 0; i < 16; i++) fprint(2, " %02ux", ntauth[72+i]);
+		fprint(2, "\n");
+		fprint(2, "nla: ntauth header (first 92 bytes):");
+		for(i = 0; i < 92 && i < n; i++) fprint(2, " %02ux", ntauth[i]);
+		fprint(2, "\n");
 	} else {
 		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, 24, nil);
 		if(n < 0)
