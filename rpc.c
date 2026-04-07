@@ -286,6 +286,9 @@ nlahandshake(Rdp *c)
 	memset(pass, 0, sizeof pass);
 	return n;
 }
+
+int
+x224hangup(Rdp* c)
 {
 	Msg t;
 
