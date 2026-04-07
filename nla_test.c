@@ -211,7 +211,7 @@ testmkntauth(void)
 	int n;
 
 	memset(ntresp, 0x55, NTRespLen);
-	n = mkntauth(buf, sizeof buf, "joe", "CORP", ntresp, nil);
+	n = mkntauth(buf, sizeof buf, "joe", "CORP", ntresp, NTRespLen, nil);
 	if(n < 0)
 		sysfatal("testmkntauth: unexpected error");
 	if(n < 64)

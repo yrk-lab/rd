@@ -30,8 +30,10 @@ enum
 	NfAlwaysSign	= (1<<15),	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
 	NfESS		= (1<<19),	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
 
-	/* NTLM response size (NTLMv1) */
-	NTRespLen	= 24,
+	/* NTLM response sizes */
+	NTRespLen		= 24,	/* NTLMv1 NT/LM response length */
+	MaxNTLMTargetInfo	= 1024,	/* maximum TargetInfo AvPairs length */
+	NTv2RespMax		= 16 + 32 + MaxNTLMTargetInfo,	/* max NTLMv2 NtChallengeResponse */
 
 	/* ASN.1 Universal tags (BER/DER) */
 	TagInt		= 2,	/* INTEGER */
@@ -784,8 +786,168 @@ getntchal(uchar challenge[8], uchar *buf, int n)
 	return 0;
 }
 
+/*
+ * Return a pointer into buf at the TargetInfo AvPairs from an NTLM Challenge,
+ * and set *tilen.  Returns nil if absent or malformed.
+ */
+uchar *
+getntargetinfo(uchar *buf, int n, int *tilen)
+{
+	int len, off;
+
+	if(n < 48)
+		return nil;
+	len = GSHORT(buf + 40);
+	off = (int)GLONG(buf + 44);
+	if(len <= 0 || off < 32 || off + len > n)
+		return nil;
+	*tilen = len;
+	return buf + off;
+}
+
+/*
+ * Scan TargetInfo AvPairs for MsvAvTimestamp (AvId=7).
+ * Returns 1 and fills ts[8] if found, else 0.
+ */
+static int
+getavtimestamp(uchar *ti, int tilen, uchar ts[8])
+{
+	uchar *p, *ep;
+	int avid, avlen;
+
+	p  = ti;
+	ep = ti + tilen;
+	while(p + 4 <= ep){
+		avid  = GSHORT(p);
+		avlen = GSHORT(p + 2);
+		p += 4;
+		if(avid == 0)
+			break;
+		if(avlen < 0 || p + avlen > ep)
+			break;
+		if(avid == 7 && avlen == 8){
+			memmove(ts, p, 8);
+			return 1;
+		}
+		p += avlen;
+	}
+	return 0;
+}
+
+/*
+ * Compute NTLMv2 NT and LM challenge responses and the ExportedSessionKey.
+ *
+ *   pass, user, domain — credentials
+ *   svchal  — 8-byte server challenge from the NTLM Challenge message
+ *   cchal   — 8-byte client challenge (caller-supplied random bytes)
+ *   ti      — TargetInfo from the NTLM Challenge (verbatim); nil → empty
+ *   tilen   — TargetInfo length; 0 if nil
+ *   ntbuf   — output buffer for NtChallengeResponse
+ *   nntbuf  — ntbuf size; must be ≥ NTv2RespMax
+ *   lmbuf   — output LmChallengeResponse (exactly 24 bytes)
+ *   sesskey — output ExportedSessionKey (16 bytes; used for CredSSP key derivation)
+ *
+ * NtChallengeResponse = NtProofStr[16] ‖ Blob[32+tilen]
+ * LmChallengeResponse = HMAC_MD5(ResponseKeyNT, svchal‖cchal) ‖ cchal  (24 bytes)
+ * ExportedSessionKey  = HMAC_MD5(ResponseKeyNT, NtProofStr)
+ *
+ * Returns the length of NtChallengeResponse written, or -1 on error.
+ */
 int
-mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen], uchar *lmresp)
+ntv2frompasswd(char *pass, char *user, char *domain,
+               uchar svchal[8], uchar cchal[8], uchar *ti, int tilen,
+               uchar *ntbuf, int nntbuf, uchar lmbuf[24], uchar sesskey[MD5dlen])
+{
+	uchar nthash[MD4dlen], rkey[MD5dlen], ntproofstr[MD5dlen];
+	uchar blob[32 + MaxNTLMTargetInfo];
+	uchar unidata[1024], unipass[256], ts[8];
+	DigestState *ds;
+	Rune r;
+	char *p;
+	int n, bloblen;
+	uchar *w;
+
+	if(tilen > MaxNTLMTargetInfo){
+		werrstr("ntv2frompasswd: TargetInfo too large (%d)", tilen);
+		return -1;
+	}
+	bloblen = 32 + tilen;
+	if(MD5dlen + bloblen > nntbuf){
+		werrstr("ntv2frompasswd: NT response buffer too small");
+		return -1;
+	}
+
+	/* NT hash = MD4(UNICODE(pass)) */
+	n = strlen(pass);
+	if(n > 128)
+		n = 128;
+	w = unipass;
+	for(p = pass; p < pass+n; ){
+		p += chartorune(&r, p);
+		*w++ = r & 0xff;
+		*w++ = r >> 8;
+	}
+	md4(unipass, w - unipass, nthash, nil);
+
+	/* ResponseKeyNT = HMAC_MD5(nthash, UNICODE(uppercase(user)) ‖ UNICODE(domain)) */
+	w = unidata;
+	n = strlen(user);
+	for(p = user; p < user+n; ){
+		p += chartorune(&r, p);
+		r = toupperrune(r);
+		*w++ = r & 0xff;
+		*w++ = r >> 8;
+	}
+	n = strlen(domain);
+	for(p = domain; p < domain+n; ){
+		p += chartorune(&r, p);
+		*w++ = r & 0xff;
+		*w++ = r >> 8;
+	}
+	hmac_md5(unidata, w - unidata, nthash, MD4dlen, rkey, nil);
+
+	/*
+	 * Build the NTLMv2 blob (MS-NLMP §3.3.2):
+	 *   [0]      RespType      = 0x01
+	 *   [1]      HiRespType    = 0x01
+	 *   [2-7]    Reserved      (6 zero bytes)
+	 *   [8-15]   Timestamp     (MsvAvTimestamp or zeros)
+	 *   [16-23]  ClientChallenge
+	 *   [24-27]  Reserved      (4 zero bytes)
+	 *   [28..]   TargetInfo    (verbatim from Challenge)
+	 *   [28+tilen..31+tilen]  Reserved (4 zero bytes)
+	 */
+	memset(blob, 0, bloblen);
+	blob[0] = 0x01;
+	blob[1] = 0x01;
+	if(!getavtimestamp(ti, tilen, ts))
+		memset(ts, 0, 8);
+	memmove(blob + 8, ts, 8);
+	memmove(blob + 16, cchal, 8);
+	if(ti != nil && tilen > 0)
+		memmove(blob + 28, ti, tilen);
+
+	/* NtProofStr = HMAC_MD5(ResponseKeyNT, svchal ‖ blob) */
+	ds = hmac_md5(svchal, 8, rkey, MD5dlen, nil, nil);
+	hmac_md5(blob, bloblen, rkey, MD5dlen, ntproofstr, ds);
+
+	/* ExportedSessionKey = HMAC_MD5(ResponseKeyNT, NtProofStr) */
+	hmac_md5(ntproofstr, MD5dlen, rkey, MD5dlen, sesskey, nil);
+
+	/* NtChallengeResponse = NtProofStr ‖ blob */
+	memmove(ntbuf, ntproofstr, MD5dlen);
+	memmove(ntbuf + MD5dlen, blob, bloblen);
+
+	/* LmChallengeResponse = HMAC_MD5(ResponseKeyNT, svchal‖cchal) ‖ cchal */
+	ds = hmac_md5(svchal, 8, rkey, MD5dlen, nil, nil);
+	hmac_md5(cchal, 8, rkey, MD5dlen, lmbuf, ds);
+	memmove(lmbuf + 16, cchal, 8);
+
+	return MD5dlen + bloblen;
+}
+
+int
+mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntresplen, uchar *lmresp)
 {
 	uchar dom16[512], usr16[512];
 	int domlen, usrlen;
@@ -796,12 +958,12 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	domlen = toutf16(dom16, sizeof dom16, domain, strlen(domain));
 	usrlen = toutf16(usr16, sizeof usr16, user, strlen(user));
 
-	lmlen     = NTRespLen;		/* LmChallengeResponse length (24 bytes) */
+	lmlen     = NTRespLen;		/* LmChallengeResponse is always 24 bytes */
 	domoff    = 64;
 	usroff    = domoff + domlen;
 	lmoff     = usroff + usrlen;
 	ntoff     = lmoff  + lmlen;
-	total     = ntoff  + NTRespLen;
+	total     = ntoff  + ntresplen;
 
 	if(total > nbuf){
 		werrstr("mkntauth: buffer too small (%d < %d)", nbuf, total);
@@ -819,8 +981,8 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	p += 8;
 
 	/* NtChallengeResponseFields */
-	PSHORT(p, NTRespLen);
-	PSHORT(p+2, NTRespLen);
+	PSHORT(p, ntresplen);
+	PSHORT(p+2, ntresplen);
 	PLONG(p+4, ntoff);
 	p += 8;
 
@@ -839,27 +1001,27 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar ntresp[NTRespLen]
 	/* WorkstationFields (empty) */
 	PSHORT(p, 0);
 	PSHORT(p+2, 0);
-	PLONG(p+4, lmoff);	/* offset points to lm area; length is 0 */
+	PLONG(p+4, lmoff);
 	p += 8;
 
 	/* EncryptedRandomSessionKeyFields (empty) */
 	PSHORT(p, 0);
 	PSHORT(p+2, 0);
-	PLONG(p+4, ntoff+NTRespLen);
+	PLONG(p+4, ntoff+ntresplen);
 	p += 8;
 
 	/* NegotiateFlags */
-	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign | (lmresp != nil ? NfESS : 0));  p += 4;
+	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign);  p += 4;
 
 	/* payload */
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */
 	memmove(p, usr16, usrlen);  p += usrlen;		/* UserName */
 	if(lmresp != nil)
-		memmove(p, lmresp, lmlen);			/* ESS: cnonce||zeros; NTLMv1: factotum LMresp */
+		memmove(p, lmresp, lmlen);			/* LmChallengeResponse */
 	else
 		memset(p, 0, lmlen);				/* fallback: all zeros */
 	p += lmlen;
-	memmove(p, ntresp, NTRespLen);  p += NTRespLen;		/* NtChallengeResponse */
+	memmove(p, ntresp, ntresplen);  p += ntresplen;		/* NtChallengeResponse */
 
 	return p - buf;
 }
@@ -913,14 +1075,15 @@ return 0;
  *   cnonce  - 32-byte client nonce sent in Phase A (CredSSP v5)
  *   dom     - Windows domain (for TSCredentials)
  *   user    - username (for TSCredentials)
- *   pass    - plaintext password (session key derivation + TSCredentials)
+ *   pass    - plaintext password (for TSCredentials delegation)
+ *   sesskey - NTLMv2 ExportedSessionKey computed during Phase C
  */
 int
 nlafinish(int fd, uchar *cert, int certlen, uchar *cnonce,
-          char *dom, char *user, char *pass)
+          char *dom, char *user, char *pass, uchar sesskey[MD5dlen])
 {
 uchar tsreqbuf[4096];
-uchar sesskey[MD5dlen], signkey[MD5dlen], sealkey[MD5dlen];
+uchar signkey[MD5dlen], sealkey[MD5dlen];
 uchar creds[2048], sealcreds[2048+16];
 uchar pubkeyauth[SHA2_256dlen];
 uchar *spki;
@@ -933,9 +1096,8 @@ if(n < 0)
 return -1;
 fprint(2, "nla: Phase D received (%d bytes)\n", n);
 
-/* Derive NTLMv1 ExportedSessionKey, SignKey, SealKey */
-fprint(2, "nla: deriving session/sign/seal keys\n");
-ntsesskey(pass, sesskey);
+/* Derive SignKey and SealKey from ExportedSessionKey (computed during Phase C) */
+fprint(2, "nla: deriving sign/seal keys from session key\n");
 ntlmkeys(sesskey, signkey, sealkey);
 
 /* Extract SubjectPublicKeyInfo from server's TLS certificate */

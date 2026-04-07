@@ -42,12 +42,14 @@ uchar*	tpdat(uchar*,uchar*);
 /* nla.c */
 int		mkntnego(uchar*, int);
 int		getntchal(uchar[8], uchar*, int);
-int		mkntauth(uchar*, int, char*, char*, uchar*, uchar*);
+uchar*		getntargetinfo(uchar*, int, int*);
+int		ntv2frompasswd(char*, char*, char*, uchar*, uchar*, uchar*, int, uchar*, int, uchar*, uchar*);
+int		mkntauth(uchar*, int, char*, char*, uchar*, int, uchar*);
 void		ntrespfrompasswd(char*, uchar[8], uchar[24]);
 int		writetsreq(int, uchar*, int);
 int		writetsreqnonce(int, uchar*, int, uchar*, int);
 int		writetsreqdone(int, uchar*, int, uchar*, int);
-int		nlafinish(int, uchar*, int, uchar*, char*, char*, char*);
+int		nlafinish(int, uchar*, int, uchar*, char*, char*, char*, uchar*);
 int		readtsreq(int, uchar*, int);
 int		readtsreq_oreuarp(int, uchar*, int, ulong*);
 uchar*	gettsreq(uchar*, int, int*);

@@ -77,16 +77,19 @@ x224handshake(Rdp* c)
 int
 nlahandshake(Rdp *c)
 {
-	uchar ntnego[64], ntauth[640];
-	uchar challenge[8], chal[8], ntresp[64], tsreqbuf[4096];
-	uchar esscnonce[8], tmp[16], md5out[MD5dlen];
-	uchar lmresp[24], *lmrespptr;	/* LmChallengeResponse is 24 bytes */
-	uchar ntresp_direct[24], *nt_for_auth, *lm_for_auth;
-	uchar cnonce[32];		/* CredSSP v5 client nonce */
+	uchar ntnego[64], ntauth[2048];
+	uchar challenge[8], tsreqbuf[4096];
+	uchar cchal[8];				/* NTLMv2 client challenge */
+	uchar lmv2resp[24];			/* NTLMv2 LmChallengeResponse */
+	uchar ntv2resp[16 + 32 + 1024];		/* NTLMv2 NtChallengeResponse */
+	uchar ntresp[64];			/* factotum mschap NTLMv1 fallback */
+	uchar sesskey[MD5dlen];			/* NTLMv2 ExportedSessionKey */
+	uchar cnonce[32];			/* CredSSP v5 client nonce */
 	char user[256], domfromchal[256], pass[256], *dom;
-	uchar *ntp;
-	int n, ntlen, nresp, i, tlen, toff;
-	long srvflags;
+	uchar *ntp, *ti;
+	int n, ntlen, ntv2len, nresp, tilen, i, tlen, toff;
+
+	ntv2len = 0;
 	UserPasswd *up;
 
 	/* Phase A: NTLM Negotiate (CredSSP v5, with clientNonce) */
@@ -130,23 +133,10 @@ nlahandshake(Rdp *c)
 		fprint(2, " %02ux", ntp[i]);
 	fprint(2, "\n");
 
-	/* Check if server requested Extended Session Security (ESS/NTLMv1-ESS) */
-	srvflags = (ntlen >= 24) ? (long)GLONG(ntp+20) : 0;
-	lmrespptr = nil;
-	memmove(chal, challenge, 8);
-	if(srvflags & 0x00080000){	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
-		/* generate random 8-byte client nonce */
-		genrandom(esscnonce, sizeof esscnonce);
-		/* ESS challenge = MD5(server_challenge || client_nonce)[0..7] */
-		memmove(tmp, challenge, 8);
-		memmove(tmp+8, esscnonce, 8);
-		md5(tmp, 16, md5out, nil);
-		memmove(chal, md5out, 8);
-		/* LM response = client_nonce (8 bytes) + zeros (16 bytes) */
-		memmove(lmresp, esscnonce, 8);
-		memset(lmresp+8, 0, 16);
-		lmrespptr = lmresp;
-	}
+	/* Extract TargetInfo (needed for NTLMv2 blob and timestamp) */
+	ti = getntargetinfo(ntp, ntlen, &tilen);
+	if(ti == nil)
+		tilen = 0;
 
 	/* Use TargetName from Challenge as domain if none was specified */
 	dom = c->windom;
@@ -186,16 +176,18 @@ nlahandshake(Rdp *c)
 	}
 
 	if(pass[0] != '\0'){
-		/* Compute NT response directly from password */
-		fprint(2, "nla: computing NT response from password (user=%s, dom=%s)\n", user, dom);
-		ntrespfrompasswd(pass, chal, ntresp_direct);
-		nt_for_auth = ntresp_direct;
-		/* LM response: nil for non-ESS (no NfESS); ESS cnonce+zeros otherwise */
-		lm_for_auth = lmrespptr;
+		/* Compute NTLMv2 NT and LM responses from password (MS-NLMP §3.3.2) */
+		fprint(2, "nla: computing NTLMv2 response from password (user=%s, dom=%s)\n", user, dom);
+		genrandom(cchal, sizeof cchal);
+		ntv2len = ntv2frompasswd(pass, user, dom,
+			challenge, cchal, ti, tilen,
+			ntv2resp, sizeof ntv2resp, lmv2resp, sesskey);
+		if(ntv2len < 0)
+			return -1;
 	}else{
-		/* Fall back to factotum mschap */
+		/* Fall back to factotum mschap (NTLMv1; credential delegation will fail) */
 		fprint(2, "nla: calling factotum mschap (keyspec=%s, dom=%s)\n", c->keyspec, dom);
-		nresp = auth_respond(chal, 8,
+		nresp = auth_respond(challenge, 8,
 			user, sizeof(user)-1,
 			ntresp, sizeof(ntresp),
 			auth_getkey,
@@ -209,10 +201,6 @@ nlahandshake(Rdp *c)
 			return -1;
 		}
 		fprint(2, "nla: factotum returned user=%s nresp=%d\n", user, nresp);
-		/* factotum mschap returns MSchapreply: LMresp[24] at [0], NTresp[24] at [24] */
-		nt_for_auth = ntresp + 24;
-		/* nil for non-ESS so NfESS is not set; ESS cnonce+zeros otherwise */
-		lm_for_auth = lmrespptr;
 	}
 
 	/* Propagate user name if not yet set on the connection */
@@ -224,7 +212,10 @@ nlahandshake(Rdp *c)
 
 	/* Phase C: NTLM Authenticate */
 	fprint(2, "nla: sending Phase C (NTLM Authenticate, user=%s, dom=%s)\n", c->user, dom);
-	n = mkntauth(ntauth, sizeof ntauth, c->user, dom, nt_for_auth, lm_for_auth);
+	if(pass[0] != '\0')
+		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntv2resp, ntv2len, lmv2resp);
+	else
+		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, 24, nil);
 	if(n < 0)
 		return -1;
 	if(writetsreq(c->fd, ntauth, n) < 0)
@@ -239,7 +230,7 @@ nlahandshake(Rdp *c)
 	fprint(2, "nla: password obtained (%d chars), calling nlafinish\n", (int)strlen(pass));
 
 	/* Phases D and E: read server pubKeyAuth, send TSCredentials */
-	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, cnonce, dom, c->user, pass);
+	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, cnonce, dom, c->user, pass, sesskey);
 	memset(pass, 0, sizeof pass);
 	return n;
 }
