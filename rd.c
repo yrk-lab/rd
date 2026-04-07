@@ -186,6 +186,7 @@ main(int argc, char *argv[])
 		usage();
 
 	server = argv[0];
+	c->server = server;
 
 	c->local = getenv("sysname");
 	c->user = getenv("user");

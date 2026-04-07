@@ -43,7 +43,7 @@ uchar*	tpdat(uchar*,uchar*);
 int		mkntnego(uchar*, int);
 int		getntchal(uchar[8], uchar*, int);
 uchar*		getntargetinfo(uchar*, int, int*);
-int		ntv2frompasswd(char*, char*, char*, uchar*, uchar*, uchar*, int, uchar*, int, uchar*, uchar*);
+int		ntv2frompasswd(char*, char*, char*, uchar*, uchar*, uchar*, int, uchar*, int, uchar*, uchar*, uchar*, int, char*);
 int		mkntauth(uchar*, int, char*, char*, uchar*, int, uchar*, uchar*);
 void		ntrespfrompasswd(char*, uchar[8], uchar[24]);
 int		writetsreq(int, uchar*, int);

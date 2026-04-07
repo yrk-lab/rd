@@ -36,8 +36,9 @@ enum
 
 	/* NTLM response sizes */
 	NTRespLen		= 24,	/* NTLMv1 NT/LM response length */
-	MaxNTLMTargetInfo	= 1024,	/* maximum TargetInfo AvPairs length */
-	NTv2RespMax		= 16 + 32 + MaxNTLMTargetInfo,	/* max NTLMv2 NtChallengeResponse */
+	MaxNTLMTargetInfo	= 1024,	/* maximum TargetInfo AvPairs length from challenge */
+	MaxNTLMClientAvExtra	= 8 + (4+16) + (4+512) + 4,	/* MsvAvFlags+MsvAvChannelBindings+MsvAvTargetName+EOL */
+	NTv2RespMax		= 16 + 32 + MaxNTLMTargetInfo + MaxNTLMClientAvExtra,	/* max NTLMv2 NtChallengeResponse */
 
 	/* ASN.1 Universal tags (BER/DER) */
 	TagInt		= 2,	/* INTEGER */
@@ -839,7 +840,53 @@ getavtimestamp(uchar *ti, int tilen, uchar ts[8])
 }
 
 /*
- * Compute NTLMv2 NT and LM challenge responses and the ExportedSessionKey.
+ * Compute the NTLM MsvAvChannelBindings value (16 bytes) from the server's
+ * TLS certificate per RFC 5929 "tls-server-end-point" channel binding:
+ *
+ *   hash      = SHA-256(server_cert_DER)
+ *   cbstruct  = gss_channel_bindings_struct {
+ *                   initiator_addrtype  = 0 (LE32),
+ *                   initiator_address   = "" (LE32 len=0),
+ *                   acceptor_addrtype   = 0 (LE32),
+ *                   acceptor_address    = "" (LE32 len=0),
+ *                   application_data    = "tls-server-end-point:" ‖ hash
+ *                                        with its length as LE32 prefix
+ *               }
+ *   MsvAvChannelBindings = MD5(cbstruct)
+ *
+ * If cert is nil or certlen ≤ 0 all-zero SHA-256 is used, yielding a
+ * well-defined 16-byte value that signals to the server that no binding
+ * is available.
+ */
+static void
+tlscbind(uchar *cert, int certlen, uchar cbind[MD5dlen])
+{
+	uchar hash[SHA2_256dlen];
+	static char prefix[] = "tls-server-end-point:";	/* 21 chars (no NUL) */
+	/* 20 bytes fixed header + 21-char prefix + 32-byte SHA-256 hash = 73 bytes */
+	uchar cbstruct[20 + sizeof prefix - 1 + SHA2_256dlen];
+	int applen;
+	uchar *p;
+
+	if(cert != nil && certlen > 0)
+		sha2_256(cert, certlen, hash, nil);
+	else
+		memset(hash, 0, SHA2_256dlen);
+
+	applen = (int)(sizeof prefix - 1) + SHA2_256dlen;	/* 21 + 32 = 53 */
+	memset(cbstruct, 0, 20);	/* initiator/acceptor addr types and lengths = 0 */
+	p = cbstruct + 16;		/* application_data length field at offset 16 */
+	p[0] = applen & 0xff;
+	p[1] = (applen >> 8) & 0xff;
+	p[2] = (applen >> 16) & 0xff;
+	p[3] = (applen >> 24) & 0xff;
+	memmove(cbstruct + 20, prefix, sizeof prefix - 1);
+	memmove(cbstruct + 20 + (sizeof prefix - 1), hash, SHA2_256dlen);
+	md5(cbstruct, sizeof cbstruct, cbind, nil);
+}
+
+/*
+ * Compute NTLMv2 NT and LM challenge responses and the SessionBaseKey.
  *
  *   pass, user, domain — credentials
  *   svchal  — 8-byte server challenge from the NTLM Challenge message
@@ -849,27 +896,34 @@ getavtimestamp(uchar *ti, int tilen, uchar ts[8])
  *   ntbuf   — output buffer for NtChallengeResponse
  *   nntbuf  — ntbuf size; must be ≥ NTv2RespMax
  *   lmbuf   — output LmChallengeResponse (exactly 24 bytes)
- *   sesskey — output ExportedSessionKey (16 bytes; used for CredSSP key derivation)
+ *   sesskey — output SessionBaseKey (16 bytes; = KeyExchangeKey for NTLMv2)
+ *   cert    — server TLS certificate DER for MsvAvChannelBindings (nil → zeros)
+ *   certlen — cert length (0 if nil)
+ *   spn     — service principal name for MsvAvTargetName, e.g. "TERMSRV/host"
+ *             (nil or empty → omit MsvAvTargetName AvPair)
  *
- * NtChallengeResponse = NtProofStr[16] ‖ Blob[32+tilen]
+ * NtChallengeResponse = NtProofStr[16] ‖ Blob[32+mtilen]
  * LmChallengeResponse = HMAC_MD5(ResponseKeyNT, svchal‖cchal) ‖ cchal  (24 bytes)
- * ExportedSessionKey  = HMAC_MD5(ResponseKeyNT, NtProofStr)
+ * SessionBaseKey      = HMAC_MD5(ResponseKeyNT, NtProofStr)
  *
  * Returns the length of NtChallengeResponse written, or -1 on error.
  */
 int
 ntv2frompasswd(char *pass, char *user, char *domain,
                uchar svchal[8], uchar cchal[8], uchar *ti, int tilen,
-               uchar *ntbuf, int nntbuf, uchar lmbuf[24], uchar sesskey[MD5dlen])
+               uchar *ntbuf, int nntbuf, uchar lmbuf[24], uchar sesskey[MD5dlen],
+               uchar *cert, int certlen, char *spn)
 {
 	uchar nthash[MD4dlen], rkey[MD5dlen], ntproofstr[MD5dlen];
-	uchar blob[32 + MaxNTLMTargetInfo + 8];	/* +8 for MsvAvFlags AvPair */
-	uchar mti[MaxNTLMTargetInfo + 8];		/* modified TargetInfo */
+	uchar blob[32 + MaxNTLMTargetInfo + MaxNTLMClientAvExtra];
+	uchar mti[MaxNTLMTargetInfo + MaxNTLMClientAvExtra];
+	uchar cbind[MD5dlen];
+	uchar spn16[512];
 	uchar unidata[1024], unipass[256], ts[8];
 	DigestState *ds;
 	Rune r;
 	char *p;
-	int n, bloblen, mtilen, eol;
+	int n, bloblen, mtilen, eol, spn16len;
 	uchar *w;
 
 	if(tilen > MaxNTLMTargetInfo){
@@ -877,12 +931,19 @@ ntv2frompasswd(char *pass, char *user, char *domain,
 		return -1;
 	}
 
+	/* Compute TLS channel binding and SPN UTF-16 for EPA AvPairs */
+	tlscbind(cert, certlen, cbind);
+	spn16len = 0;
+	if(spn != nil && spn[0] != '\0')
+		spn16len = toutf16(spn16, sizeof spn16, spn, strlen(spn));
+
 	/*
-	 * Build modified TargetInfo: insert MsvAvFlags=2 AvPair before EOL.
-	 * Required by MS-NLMP §3.1.5.1.2.3 when providing a MIC — the flag
-	 * value 2 signals to the server that a MIC is present in AUTHENTICATE_MESSAGE.
-	 * The server uses this modified TargetInfo (from the blob) to recompute
-	 * NtProofStr and ExportedSessionKey, so we must use it here too.
+	 * Build modified TargetInfo with EPA AvPairs inserted before EOL:
+	 *   MsvAvFlags (AvId=6)            — value=2 signals MIC is present
+	 *   MsvAvChannelBindings (AvId=10) — TLS channel binding hash (RFC 5929)
+	 *   MsvAvTargetName (AvId=9)       — SPN, e.g. "TERMSRV/hostname" (if provided)
+	 * Required by MS-NLMP §3.1.5.1.2.3 when NfESS is negotiated and
+	 * MsvAvTimestamp is present in the challenge TargetInfo.
 	 */
 	mtilen = 0;
 	if(ti != nil && tilen > 0){
@@ -897,13 +958,26 @@ ntv2frompasswd(char *pass, char *user, char *domain,
 			eol += 4 + avlen;
 		}
 		memmove(mti, ti, eol);
-		mti[eol+0] = 6; mti[eol+1] = 0;	/* AvId=6 (MsvAvFlags) */
-		mti[eol+2] = 4; mti[eol+3] = 0;	/* AvLen=4 */
-		mti[eol+4] = 2; mti[eol+5] = 0;	/* Value=0x00000002 (MIC present) */
-		mti[eol+6] = 0; mti[eol+7] = 0;
-		mti[eol+8] = 0; mti[eol+9] = 0;	/* EOL AvId=0 */
-		mti[eol+10]= 0; mti[eol+11]= 0;	/* EOL AvLen=0 */
-		mtilen = eol + 12;
+		w = mti + eol;
+		/* MsvAvFlags (AvId=6, AvLen=4): value=2 = MIC present */
+		w[0]=6; w[1]=0; w[2]=4; w[3]=0;
+		w[4]=2; w[5]=0; w[6]=0; w[7]=0;
+		w += 8;
+		/* MsvAvChannelBindings (AvId=10, AvLen=16): TLS channel binding hash */
+		w[0]=10; w[1]=0; w[2]=MD5dlen; w[3]=0;
+		memmove(w+4, cbind, MD5dlen);
+		w += 4 + MD5dlen;
+		/* MsvAvTargetName (AvId=9): SPN in UTF-16LE, e.g. "TERMSRV/hostname" */
+		if(spn16len > 0){
+			w[0]=9; w[1]=0;
+			w[2]=spn16len & 0xff; w[3]=(spn16len>>8) & 0xff;
+			memmove(w+4, spn16, spn16len);
+			w += 4 + spn16len;
+		}
+		/* MsvAvEOL (AvId=0, AvLen=0) */
+		w[0]=0; w[1]=0; w[2]=0; w[3]=0;
+		w += 4;
+		mtilen = (int)(w - mti);
 	}
 
 	bloblen = 32 + mtilen;

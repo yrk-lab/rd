@@ -81,7 +81,7 @@ nlahandshake(Rdp *c)
 	uchar challenge[8], tsreqbuf[4096];
 	uchar cchal[8];				/* NTLMv2 client challenge */
 	uchar lmv2resp[24];			/* NTLMv2 LmChallengeResponse */
-	uchar ntv2resp[16 + 32 + 1024];		/* NTLMv2 NtChallengeResponse */
+	uchar ntv2resp[16 + 32 + 1024 + 600];		/* NTLMv2 NtChallengeResponse (extra for EPA AvPairs) */
 	uchar ntresp[64];			/* factotum mschap NTLMv1 fallback */
 	uchar sesskey[MD5dlen];			/* NTLMv2 SessionBaseKey (= KeyExchangeKey) */
 	uchar exportedsk[MD5dlen];		/* random ExportedSessionKey (used for sign/seal) */
@@ -185,9 +185,27 @@ nlahandshake(Rdp *c)
 		/* Compute NTLMv2 NT and LM responses from password (MS-NLMP §3.3.2) */
 		fprint(2, "nla: computing NTLMv2 response from password (user=%s, dom=%s)\n", user, dom);
 		genrandom(cchal, sizeof cchal);
-		ntv2len = ntv2frompasswd(pass, user, dom,
-			challenge, cchal, ti, tilen,
-			ntv2resp, sizeof ntv2resp, lmv2resp, sesskey);
+		{
+			/*
+			 * Build SPN "TERMSRV/<hostname>" for MsvAvTargetName.
+			 * Strip any "net!" prefix and "!port" suffix from c->server
+			 * (Plan 9 dial address format is "net!host!port").
+			 */
+			char spnbuf[280];
+			char *h, *bang;
+			h = (c->server != nil) ? c->server : "";
+			if((bang = strchr(h, '!')) != nil)
+				h = bang + 1;	/* skip "tcp!" or other network prefix */
+			if((bang = strchr(h, '!')) != nil)
+				snprint(spnbuf, sizeof spnbuf, "TERMSRV/%.*s", (int)(bang - h), h);
+			else
+				snprint(spnbuf, sizeof spnbuf, "TERMSRV/%s", h);
+			fprint(2, "nla: SPN for MsvAvTargetName: %s\n", spnbuf);
+			ntv2len = ntv2frompasswd(pass, user, dom,
+				challenge, cchal, ti, tilen,
+				ntv2resp, sizeof ntv2resp, lmv2resp, sesskey,
+				c->tlscert, c->tlscertlen, spnbuf);
+		}
 		if(ntv2len < 0)
 			return -1;
 		fprint(2, "nla: SessionBaseKey (KeyExchangeKey):");
