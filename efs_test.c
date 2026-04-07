@@ -13,6 +13,7 @@ int audiotests(void);
 int egditests(void);
 int msgtests(void);
 int mppctests(void);
+int nlatests(void);
 int rletests(void);
 int utf16tests(void);
 
@@ -132,6 +133,7 @@ main(int, char**)
 	egditests();
 	msgtests();
 	mppctests();
+	nlatests();
 	rletests();
 	utf16tests();
 	print("ok\n");

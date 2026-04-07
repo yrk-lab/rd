@@ -39,6 +39,32 @@ int		istpkt(uchar*,uchar*);
 int		tptype(uchar*,uchar*);
 uchar*	tpdat(uchar*,uchar*);
 
+/* nla.c buffer sizes (also used by rpc.c) */
+enum
+{
+	MaxNTLMTargetInfo	= 1024,	/* maximum TargetInfo AvPairs length from challenge */
+	MaxNTLMClientAvExtra	= 8 + (4+16) + (4+512) + 4,	/* MsvAvFlags+MsvAvChannelBindings+MsvAvTargetName+EOL */
+	NTv2RespMax		= 16 + 28 + MaxNTLMTargetInfo + MaxNTLMClientAvExtra,	/* max NTLMv2 NtChallengeResponse */
+};
+
+/* nla.c */
+int		mkntnego(uchar*, int);
+int		getntchal(uchar[8], uchar*, int);
+uchar*		getntargetinfo(uchar*, int, int*);
+int		ntv2frompasswd(char*, char*, char*, uchar*, uchar*, uchar*, int, uchar*, int, uchar*, uchar*, uchar*, int, char*);
+int		mkntauth(uchar*, int, char*, char*, uchar*, int, uchar*, uchar*);
+void		ntrespfrompasswd(char*, uchar[8], uchar[24]);
+int		writetsreq(int, uchar*, int);
+int		writetsreqnonce(int, uchar*, int, uchar*, int);
+int		writetsreqdone(int, uchar*, int, uchar*, int);
+int		nlafinish(int, uchar*, int, uchar*, char*, char*, char*, uchar*);
+int		readtsreq(int, uchar*, int);
+int		readtsreq_oreuarp(int, uchar*, int, ulong*);
+uchar*	gettsreq(uchar*, int, int*);
+
+/* rpc.c */
+int		nlahandshake(Rdp*);
+
 /* rd.c */
 void		atexitkiller(void);
 void		atexitkill(int pid);

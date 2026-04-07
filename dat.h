@@ -50,6 +50,11 @@ struct Rdp
 	char		*passwd;		/* password for auto logon (sic) */
 	char		*shell;		/* remote shell override */
 	char		*rwd;		/* remote working directory */
+	char		*keyspec;		/* factotum key spec */
+	int		nla;			/* use NLA (CredSSP/NTLM) authentication */
+	char		*server;		/* server hostname (for NTLM SPN: "TERMSRV/<server>") */
+	uchar		*tlscert;		/* TLS server certificate DER (for CredSSP pubKeyAuth) */
+	int		tlscertlen;
 	int		xsz;			/* rfb dimensions */
 	int		ysz;			/* rfb dimensions */
 	int		depth;		/* rfb color depth */

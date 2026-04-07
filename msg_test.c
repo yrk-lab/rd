@@ -23,6 +23,28 @@ testputmsgxconnect(void){
 }
 
 static int
+testputmsgxconnectnla(void)
+{
+	/* Xconnect advertising HYBRID+HYBRID_EX (ProtoCSSP|ProtoUAUTH) for NLA */
+	int n;
+	char *s, *want;
+	uchar buf[1042];
+	Msg m;
+
+	m.type = Xconnect;
+	m.negproto = ProtoCSSP | ProtoUAUTH;
+	n = putmsg(buf, sizeof buf, &m);
+	if(n < 0)
+		sysfatal("testputmsgxconnectnla: unexpected error: %r\n");
+	s = smprint("%.*H", n, buf);
+	want = "0300002722E00000000000436F6F6B69653A206D737473686173683D780D0A010008000A000000";
+	if(strcmp(s, want) != 0)
+		sysfatal("testputmsgxconnectnla: want %s, got %s", want, s);
+	free(s);
+	return 0;
+}
+
+static int
 testputmsgxhangup(void){
 	int n;
 	char *s, *want;
@@ -569,6 +591,26 @@ testgetmsgxconntls(void)
 		sysfatal("testgetmsgxconntls: type: want %d, got %d", Xconnected, m.type);
 	if(m.negproto != ProtoTLS)
 		sysfatal("testgetmsgxconntls: negproto: want %d (ProtoTLS), got %d", ProtoTLS, m.negproto);
+	return 0;
+}
+
+static int
+testgetmsgxconnhybridex(void)
+{
+	/* X.224 connection confirm with HYBRID_EX (ProtoUAUTH) selected by server */
+	int n, nb;
+	uchar buf[32];
+	Msg m = {0};
+	char *hex = "0300001306D000000000000200080008000000";
+
+	nb = dec16(buf, sizeof buf, hex, strlen(hex));
+	n = getmsg(&m, buf, nb);
+	if(n <= 0)
+		sysfatal("testgetmsgxconnhybridex: unexpected error: %r");
+	if(m.type != Xconnected)
+		sysfatal("testgetmsgxconnhybridex: type: want %d, got %d", Xconnected, m.type);
+	if(m.negproto != ProtoUAUTH)
+		sysfatal("testgetmsgxconnhybridex: negproto: want %d (ProtoUAUTH), got %d", ProtoUAUTH, m.negproto);
 	return 0;
 }
 
@@ -1306,6 +1348,7 @@ msgtests(void)
 {
 	fmtinstall('H', encodefmt);
 	testputmsgxconnect();
+	testputmsgxconnectnla();
 	testputmsgxhangup();
 	testputmsgmattach();
 	testputmsgmjoin();
@@ -1326,6 +1369,7 @@ msgtests(void)
 	testgetmsgfp2();
 	testgetmsgfp3();
 	testgetmsgxconntls();
+	testgetmsgxconnhybridex();
 	testgetmsgxconnnonego();
 	testgetmsgmattacheduid();
 	testgetmsgmattachednouid();

@@ -31,7 +31,7 @@ static void	snarfthread(void*);
 static void
 usage(void)
 {
-	fprint(2, "usage: rd [-0A] [-T title] [-a depth] [-c wdir] [-d dom] [-k keyspec] [-n term] [-s shell] [net!]server[!port]\n");
+	fprint(2, "usage: rd [-0AN] [-T title] [-a depth] [-c wdir] [-d dom] [-k keyspec] [-n term] [-s shell] [net!]server[!port]\n");
 	threadexitsall("usage");
 }
 
@@ -39,20 +39,23 @@ void
 threadmain(int argc, char *argv[])
 {
 	int doauth;
-	char *server, *addr, *keyspec;
+	char *server, *addr;
 	UserPasswd *creds;
 	Rdp* c;
 
 	c = &conn;
-	keyspec = "";
+	c->keyspec = "";
 	doauth = 1;
 
 	ARGBEGIN{
 	case 'A':
 		doauth = 0;
 		break;
+	case 'N':
+		c->nla = 1;
+		break;
 	case 'k':
-		keyspec = EARGF(usage());
+		c->keyspec = EARGF(usage());
 		break;
 	case 'T':
 		c->label = strdup(EARGF(usage()));
@@ -87,8 +90,8 @@ threadmain(int argc, char *argv[])
 		sysfatal("set $sysname\n");
 	if(c->user == nil)
 		sysfatal("set $user");
-	if(doauth){
-		creds = auth_getuserpasswd(auth_getkey, "proto=pass role=client service=rdp %s", keyspec);
+	if(doauth && !c->nla){
+		creds = auth_getuserpasswd(auth_getkey, "proto=pass role=client service=rdp %s", c->keyspec);
 		if(creds == nil)
 			fprint(2, "factotum: %r\n");
 		else {
