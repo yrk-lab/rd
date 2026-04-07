@@ -33,7 +33,7 @@ jobs:
           ./INSTALL
 
   test:
-    name: Run tests (plan9port)
+    name: Test (plan9port)
     needs: setup
     runs-on: ubuntu-latest
     steps:
@@ -49,7 +49,7 @@ jobs:
         run: mk test
 
   build:
-    name: Build binary (plan9port)
+    name: Build (plan9port)
     needs: setup
     runs-on: ubuntu-latest
     steps:
