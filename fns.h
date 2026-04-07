@@ -39,6 +39,14 @@ int		istpkt(uchar*,uchar*);
 int		tptype(uchar*,uchar*);
 uchar*	tpdat(uchar*,uchar*);
 
+/* nla.c buffer sizes (also used by rpc.c) */
+enum
+{
+	MaxNTLMTargetInfo	= 1024,	/* maximum TargetInfo AvPairs length from challenge */
+	MaxNTLMClientAvExtra	= 8 + (4+16) + (4+512) + 4,	/* MsvAvFlags+MsvAvChannelBindings+MsvAvTargetName+EOL */
+	NTv2RespMax		= 16 + 28 + MaxNTLMTargetInfo + MaxNTLMClientAvExtra,	/* max NTLMv2 NtChallengeResponse */
+};
+
 /* nla.c */
 int		mkntnego(uchar*, int);
 int		getntchal(uchar[8], uchar*, int);

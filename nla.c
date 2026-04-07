@@ -36,9 +36,6 @@ enum
 
 	/* NTLM response sizes */
 	NTRespLen		= 24,	/* NTLMv1 NT/LM response length */
-	MaxNTLMTargetInfo	= 1024,	/* maximum TargetInfo AvPairs length from challenge */
-	MaxNTLMClientAvExtra	= 8 + (4+16) + (4+512) + 4,	/* MsvAvFlags+MsvAvChannelBindings+MsvAvTargetName+EOL */
-	NTv2RespMax		= 16 + 28 + MaxNTLMTargetInfo + MaxNTLMClientAvExtra,	/* max NTLMv2 NtChallengeResponse */
 
 	/* ASN.1 Universal tags (BER/DER) */
 	TagInt		= 2,	/* INTEGER */
