@@ -23,12 +23,16 @@
 
 enum
 {
-	/* NTLM NegotiateFlags (subset used here) */
+	/* NTLM NegotiateFlags (MS-NLMP §2.2.2.5) */
 	NfUnicode	= (1<<0),	/* NTLMSSP_NEGOTIATE_UNICODE */
 	NfReqTarget	= (1<<2),	/* NTLMSSP_REQUEST_TARGET */
+	NfSign		= (1<<4),	/* NTLMSSP_NEGOTIATE_SIGN */
+	NfSeal		= (1<<5),	/* NTLMSSP_NEGOTIATE_SEAL */
 	NfNTLM		= (1<<9),	/* NTLMSSP_NEGOTIATE_NTLM */
-	NfAlwaysSign	= (1<<15),	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
-	NfESS		= (1<<19),	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
+	NfAlwaysSign	= (1<<14),	/* NTLMSSP_NEGOTIATE_ALWAYS_SIGN */
+	NfESS		= (1<<17),	/* NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY */
+	Nf128		= (1<<28),	/* NTLMSSP_NEGOTIATE_128 */
+	NfKeyExch	= (1<<29),	/* NTLMSSP_NEGOTIATE_KEY_EXCH */
 
 	/* NTLM response sizes */
 	NTRespLen		= 24,	/* NTLMv1 NT/LM response length */
@@ -758,7 +762,7 @@ mkntnego(uchar *buf, int nbuf)
 	p = buf;
 	memmove(p, "NTLMSSP\0", 8);	p += 8;
 	PLONG(p, 1);			p += 4;		/* MessageType */
-	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign);	p += 4;		/* NegotiateFlags */
+	PLONG(p, NfUnicode|NfReqTarget|NfSign|NfSeal|NfNTLM|NfAlwaysSign|NfESS|Nf128|NfKeyExch);	p += 4;		/* NegotiateFlags */
 	memset(p, 0, 8);		p += 8;		/* DomainNameFields (empty) */
 	memset(p, 0, 8);		p += 8;		/* WorkstationFields (empty) */
 	return p - buf;
@@ -977,23 +981,25 @@ ntv2frompasswd(char *pass, char *user, char *domain,
 }
 
 int
-mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntresplen, uchar *lmresp)
+mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntresplen, uchar *lmresp, uchar *eskresp)
 {
 	uchar dom16[512], usr16[512];
 	int domlen, usrlen;
-	int domoff, usroff, lmoff, ntoff;
-	int lmlen, total;
+	int domoff, usroff, lmoff, ntoff, eskoff;
+	int lmlen, esklen, total;
 	uchar *p;
 
 	domlen = toutf16(dom16, sizeof dom16, domain, strlen(domain));
 	usrlen = toutf16(usr16, sizeof usr16, user, strlen(user));
 
 	lmlen     = NTRespLen;		/* LmChallengeResponse is always 24 bytes */
+	esklen    = (eskresp != nil) ? MD5dlen : 0;
 	domoff    = 88;			/* 64 fixed + 8 Version + 16 MIC */
 	usroff    = domoff + domlen;
 	lmoff     = usroff + usrlen;
 	ntoff     = lmoff  + lmlen;
-	total     = ntoff  + ntresplen;
+	eskoff    = ntoff  + ntresplen;
+	total     = eskoff + esklen;
 
 	if(total > nbuf){
 		werrstr("mkntauth: buffer too small (%d < %d)", nbuf, total);
@@ -1034,14 +1040,14 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntre
 	PLONG(p+4, lmoff);
 	p += 8;
 
-	/* EncryptedRandomSessionKeyFields (empty) */
-	PSHORT(p, 0);
-	PSHORT(p+2, 0);
-	PLONG(p+4, ntoff+ntresplen);
+	/* EncryptedRandomSessionKeyFields */
+	PSHORT(p, esklen);
+	PSHORT(p+2, esklen);
+	PLONG(p+4, eskoff);
 	p += 8;
 
-	/* NegotiateFlags: no NfESS — NTLMv2 uses its own client challenge in the blob */
-	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign);  p += 4;
+	/* NegotiateFlags: NfESS echoed from challenge; NfKeyExch signals EncryptedRandomSessionKey */
+	PLONG(p, NfUnicode|NfReqTarget|NfSign|NfSeal|NfNTLM|NfAlwaysSign|NfESS|Nf128|NfKeyExch);  p += 4;
 
 	/* Version (8 zero bytes, offset 64; NTLMSSP_NEGOTIATE_VERSION not advertised) */
 	memset(p, 0, 8);  p += 8;
@@ -1062,6 +1068,9 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntre
 		memset(p, 0, lmlen);				/* fallback: all zeros */
 	p += lmlen;
 	memmove(p, ntresp, ntresplen);  p += ntresplen;		/* NtChallengeResponse */
+	if(eskresp != nil){
+		memmove(p, eskresp, MD5dlen);  p += MD5dlen;	/* EncryptedRandomSessionKey */
+	}
 
 	return p - buf;
 }
@@ -1137,8 +1146,15 @@ return -1;
 fprint(2, "nla: Phase D received (%d bytes)\n", n);
 
 /* Derive SignKey and SealKey from ExportedSessionKey (computed during Phase C) */
-fprint(2, "nla: deriving sign/seal keys from session key\n");
+fprint(2, "nla: ExportedSessionKey (for sign/seal):");
+for(n = 0; n < MD5dlen; n++) fprint(2, " %02ux", sesskey[n]);
+fprint(2, "\n");
+n = 0;
 ntlmkeys(sesskey, signkey, sealkey);
+fprint(2, "nla: signKey:");
+for(n = 0; n < MD5dlen; n++) fprint(2, " %02ux", signkey[n]);
+fprint(2, "\n");
+n = 0;
 
 /* Extract SubjectPublicKeyInfo from server's TLS certificate */
 fprint(2, "nla: extracting server SubjectPublicKeyInfo (certlen=%d)\n", certlen);
@@ -1149,7 +1165,14 @@ if(spki == nil || spkilen <= 0){
 werrstr("NLA: cannot extract server public key from TLS certificate");
 return -1;
 }
-fprint(2, "nla: SPKI extracted (%d bytes)\n", spkilen);
+fprint(2, "nla: SPKI (%d bytes):", spkilen);
+for(n = 0; n < spkilen; n++) fprint(2, " %02ux", spki[n]);
+fprint(2, "\n");
+n = 0;
+fprint(2, "nla: clientNonce:");
+for(n = 0; n < 32; n++) fprint(2, " %02ux", cnonce[n]);
+fprint(2, "\n");
+n = 0;
 
 /*
  * CredSSP v5 Phase E pubKeyAuth (MS-CSSP §3.1.5.1.1.1):
@@ -1159,7 +1182,10 @@ fprint(2, "nla: SPKI extracted (%d bytes)\n", spkilen);
 pubkeyauthlen = mkpubkeyauth(pubkeyauth, sizeof pubkeyauth, sesskey, cnonce, spki, spkilen);
 if(pubkeyauthlen < 0)
 return -1;
-fprint(2, "nla: pubKeyAuth computed (%d bytes)\n", pubkeyauthlen);
+fprint(2, "nla: pubKeyAuth:");
+for(n = 0; n < pubkeyauthlen; n++) fprint(2, " %02ux", pubkeyauth[n]);
+fprint(2, "\n");
+n = 0;
 
 n = mktscreds(creds, sizeof creds, dom, user, pass);
 if(n < 0)

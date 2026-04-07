@@ -83,7 +83,10 @@ nlahandshake(Rdp *c)
 	uchar lmv2resp[24];			/* NTLMv2 LmChallengeResponse */
 	uchar ntv2resp[16 + 32 + 1024];		/* NTLMv2 NtChallengeResponse */
 	uchar ntresp[64];			/* factotum mschap NTLMv1 fallback */
-	uchar sesskey[MD5dlen];			/* NTLMv2 ExportedSessionKey */
+	uchar sesskey[MD5dlen];			/* NTLMv2 SessionBaseKey (= KeyExchangeKey) */
+	uchar exportedsk[MD5dlen];		/* random ExportedSessionKey (used for sign/seal) */
+	uchar eskresp[MD5dlen];			/* EncryptedRandomSessionKey = RC4K(sesskey, exportedsk) */
+	RC4state rc4st;
 	uchar cnonce[32];			/* CredSSP v5 client nonce */
 	char user[256], domfromchal[256], pass[256], *dom;
 	uchar *ntp, *ti;
@@ -92,6 +95,7 @@ nlahandshake(Rdp *c)
 
 	ntv2len = 0;
 	memset(sesskey, 0, sizeof sesskey);
+	memset(exportedsk, 0, sizeof exportedsk);
 
 	/* Phase A: NTLM Negotiate (CredSSP v5, with clientNonce) */
 	fprint(2, "nla: sending Phase A (NTLM Negotiate)\n");
@@ -186,8 +190,23 @@ nlahandshake(Rdp *c)
 			ntv2resp, sizeof ntv2resp, lmv2resp, sesskey);
 		if(ntv2len < 0)
 			return -1;
-		fprint(2, "nla: ExportedSessionKey:");
+		fprint(2, "nla: SessionBaseKey (KeyExchangeKey):");
 		for(i = 0; i < MD5dlen; i++) fprint(2, " %02ux", sesskey[i]);
+		fprint(2, "\n");
+		/*
+		 * Generate a random ExportedSessionKey and compute EncryptedRandomSessionKey
+		 * = RC4K(SessionBaseKey, ExportedSessionKey) per MS-NLMP §3.1.5.1.2.3.
+		 * The ExportedSessionKey is used for sign/seal key derivation and CredSSP hashes.
+		 */
+		genrandom(exportedsk, MD5dlen);
+		memmove(eskresp, exportedsk, MD5dlen);
+		setupRC4state(&rc4st, sesskey, MD5dlen);
+		rc4(&rc4st, eskresp, MD5dlen);
+		fprint(2, "nla: ExportedSessionKey (random):");
+		for(i = 0; i < MD5dlen; i++) fprint(2, " %02ux", exportedsk[i]);
+		fprint(2, "\n");
+		fprint(2, "nla: EncryptedRandomSessionKey:");
+		for(i = 0; i < MD5dlen; i++) fprint(2, " %02ux", eskresp[i]);
 		fprint(2, "\n");
 		fprint(2, "nla: ntnego (%d bytes):", nnego);
 		for(i = 0; i < nnego; i++) fprint(2, " %02ux", ntnego[i]);
@@ -221,7 +240,7 @@ nlahandshake(Rdp *c)
 	/* Phase C: NTLM Authenticate */
 	fprint(2, "nla: sending Phase C (NTLM Authenticate, user=%s, dom=%s)\n", c->user, dom);
 	if(pass[0] != '\0'){
-		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntv2resp, ntv2len, lmv2resp);
+		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntv2resp, ntv2len, lmv2resp, eskresp);
 		if(n < 0)
 			return -1;
 		/*
@@ -232,21 +251,22 @@ nlahandshake(Rdp *c)
 		 *                 NTLM_Negotiate || NTLM_Challenge || NTLM_Authenticate)
 		 * ntauth[72..87] was zeroed by mkntauth, so HMAC is computed over the
 		 * message as it will appear on the wire (MIC field = 0 during computation).
+		 * ExportedSessionKey is the random key (not the SessionBaseKey).
 		 */
 		{
 			DigestState *mds;
-			mds = hmac_md5(ntnego, nnego, sesskey, MD5dlen, nil, nil);
-			mds = hmac_md5(ntp, ntlen, sesskey, MD5dlen, nil, mds);
-			hmac_md5(ntauth, n, sesskey, MD5dlen, ntauth+72, mds);
+			mds = hmac_md5(ntnego, nnego, exportedsk, MD5dlen, nil, nil);
+			mds = hmac_md5(ntp, ntlen, exportedsk, MD5dlen, nil, mds);
+			hmac_md5(ntauth, n, exportedsk, MD5dlen, ntauth+72, mds);
 		}
 		fprint(2, "nla: MIC:");
 		for(i = 0; i < 16; i++) fprint(2, " %02ux", ntauth[72+i]);
 		fprint(2, "\n");
-		fprint(2, "nla: ntauth header (first 92 bytes):");
-		for(i = 0; i < 92 && i < n; i++) fprint(2, " %02ux", ntauth[i]);
+		fprint(2, "nla: ntauth (%d bytes):", n);
+		for(i = 0; i < n; i++) fprint(2, " %02ux", ntauth[i]);
 		fprint(2, "\n");
 	} else {
-		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, 24, nil);
+		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, 24, nil, nil);
 		if(n < 0)
 			return -1;
 	}
@@ -262,13 +282,10 @@ nlahandshake(Rdp *c)
 	fprint(2, "nla: password obtained (%d chars), calling nlafinish\n", (int)strlen(pass));
 
 	/* Phases D and E: read server pubKeyAuth, send TSCredentials */
-	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, cnonce, dom, c->user, pass, sesskey);
+	n = nlafinish(c->fd, c->tlscert, c->tlscertlen, cnonce, dom, c->user, pass, exportedsk);
 	memset(pass, 0, sizeof pass);
 	return n;
 }
-
-int
-x224hangup(Rdp* c)
 {
 	Msg t;
 
