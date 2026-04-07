@@ -859,19 +859,50 @@ ntv2frompasswd(char *pass, char *user, char *domain,
                uchar *ntbuf, int nntbuf, uchar lmbuf[24], uchar sesskey[MD5dlen])
 {
 	uchar nthash[MD4dlen], rkey[MD5dlen], ntproofstr[MD5dlen];
-	uchar blob[32 + MaxNTLMTargetInfo];
+	uchar blob[32 + MaxNTLMTargetInfo + 8];	/* +8 for MsvAvFlags AvPair */
+	uchar mti[MaxNTLMTargetInfo + 8];		/* modified TargetInfo */
 	uchar unidata[1024], unipass[256], ts[8];
 	DigestState *ds;
 	Rune r;
 	char *p;
-	int n, bloblen;
+	int n, bloblen, mtilen, eol;
 	uchar *w;
 
 	if(tilen > MaxNTLMTargetInfo){
-		werrstr("ntv2frompasswd: TargetInfo too large (%d)", tilen);
+		werrstr("ntv2frompasswd: TargetInfo too large (%d > %d)", tilen, MaxNTLMTargetInfo);
 		return -1;
 	}
-	bloblen = 32 + tilen;
+
+	/*
+	 * Build modified TargetInfo: insert MsvAvFlags=2 AvPair before EOL.
+	 * Required by MS-NLMP §3.1.5.1.2.3 when providing a MIC — the flag
+	 * value 2 signals to the server that a MIC is present in AUTHENTICATE_MESSAGE.
+	 * The server uses this modified TargetInfo (from the blob) to recompute
+	 * NtProofStr and ExportedSessionKey, so we must use it here too.
+	 */
+	mtilen = 0;
+	if(ti != nil && tilen > 0){
+		/* Find the EOL AvPair (AvId=0) */
+		for(eol = 0; eol + 4 <= tilen; ){
+			int avid = (ti[eol+1]<<8)|ti[eol];
+			int avlen = (ti[eol+3]<<8)|ti[eol+2];
+			if(avid == 0)
+				break;
+			if(eol + 4 + avlen > tilen)
+				break;		/* malformed; stop here */
+			eol += 4 + avlen;
+		}
+		memmove(mti, ti, eol);
+		mti[eol+0] = 6; mti[eol+1] = 0;	/* AvId=6 (MsvAvFlags) */
+		mti[eol+2] = 4; mti[eol+3] = 0;	/* AvLen=4 */
+		mti[eol+4] = 2; mti[eol+5] = 0;	/* Value=0x00000002 (MIC present) */
+		mti[eol+6] = 0; mti[eol+7] = 0;
+		mti[eol+8] = 0; mti[eol+9] = 0;	/* EOL AvId=0 */
+		mti[eol+10]= 0; mti[eol+11]= 0;	/* EOL AvLen=0 */
+		mtilen = eol + 12;
+	}
+
+	bloblen = 32 + mtilen;
 	if(MD5dlen + bloblen > nntbuf){
 		werrstr("ntv2frompasswd: NT response buffer too small");
 		return -1;
@@ -911,11 +942,10 @@ ntv2frompasswd(char *pass, char *user, char *domain,
 	 *   [0]      RespType      = 0x01
 	 *   [1]      HiRespType    = 0x01
 	 *   [2-7]    Reserved      (6 zero bytes)
-	 *   [8-15]   Timestamp     (MsvAvTimestamp or zeros)
+	 *   [8-15]   Timestamp     (MsvAvTimestamp from Challenge, or zeros)
 	 *   [16-23]  ClientChallenge
 	 *   [24-27]  Reserved      (4 zero bytes)
-	 *   [28..]   TargetInfo    (verbatim from Challenge)
-	 *   [28+tilen..31+tilen]  Reserved (4 zero bytes)
+	 *   [28..]   TargetInfo    (modified: MsvAvFlags=2 inserted before EOL)
 	 */
 	memset(blob, 0, bloblen);
 	blob[0] = 0x01;
@@ -924,8 +954,8 @@ ntv2frompasswd(char *pass, char *user, char *domain,
 		memset(ts, 0, 8);
 	memmove(blob + 8, ts, 8);
 	memmove(blob + 16, cchal, 8);
-	if(ti != nil && tilen > 0)
-		memmove(blob + 28, ti, tilen);
+	if(mtilen > 0)
+		memmove(blob + 28, mti, mtilen);
 
 	/* NtProofStr = HMAC_MD5(ResponseKeyNT, svchal ‖ blob) */
 	ds = hmac_md5(svchal, 8, rkey, MD5dlen, nil, nil);
@@ -959,7 +989,7 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntre
 	usrlen = toutf16(usr16, sizeof usr16, user, strlen(user));
 
 	lmlen     = NTRespLen;		/* LmChallengeResponse is always 24 bytes */
-	domoff    = 64;
+	domoff    = 88;			/* 64 fixed + 8 Version + 16 MIC */
 	usroff    = domoff + domlen;
 	lmoff     = usroff + usrlen;
 	ntoff     = lmoff  + lmlen;
@@ -1012,6 +1042,16 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntre
 
 	/* NegotiateFlags: no NfESS — NTLMv2 uses its own client challenge in the blob */
 	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign);  p += 4;
+
+	/* Version (8 zero bytes, offset 64; NTLMSSP_NEGOTIATE_VERSION not advertised) */
+	memset(p, 0, 8);  p += 8;
+
+	/*
+	 * MIC (16 zero bytes, offset 72; caller fills via HMAC_MD5 for NTLMv2).
+	 * Must be zeroed here so the caller can compute HMAC over the full message
+	 * before writing the real value into buf+72.
+	 */
+	memset(p, 0, 16);  p += 16;
 
 	/* payload */
 	memmove(p, dom16, domlen);  p += domlen;		/* DomainName */

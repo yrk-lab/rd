@@ -87,7 +87,7 @@ nlahandshake(Rdp *c)
 	uchar cnonce[32];			/* CredSSP v5 client nonce */
 	char user[256], domfromchal[256], pass[256], *dom;
 	uchar *ntp, *ti;
-	int n, ntlen, ntv2len, nresp, tilen, i, tlen, toff;
+	int n, ntlen, ntv2len, nresp, tilen, i, tlen, toff, nnego;
 	UserPasswd *up;
 
 	ntv2len = 0;
@@ -98,6 +98,7 @@ nlahandshake(Rdp *c)
 	n = mkntnego(ntnego, sizeof ntnego);
 	if(n < 0)
 		return -1;
+	nnego = n;			/* save for MIC computation */
 	genrandom(cnonce, sizeof cnonce);
 	if(writetsreqnonce(c->fd, ntnego, n, cnonce, sizeof cnonce) < 0)
 		return -1;
@@ -213,12 +214,30 @@ nlahandshake(Rdp *c)
 
 	/* Phase C: NTLM Authenticate */
 	fprint(2, "nla: sending Phase C (NTLM Authenticate, user=%s, dom=%s)\n", c->user, dom);
-	if(pass[0] != '\0')
+	if(pass[0] != '\0'){
 		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntv2resp, ntv2len, lmv2resp);
-	else
+		if(n < 0)
+			return -1;
+		/*
+		 * Compute and fill the MIC field at bytes 72–87 of AUTHENTICATE_MESSAGE.
+		 * Required by MS-NLMP §3.1.5.1.2.3 when the Challenge TargetInfo contains
+		 * MsvAvTimestamp (AvId=7), which Windows servers always include.
+		 * MIC = HMAC_MD5(ExportedSessionKey,
+		 *                 NTLM_Negotiate || NTLM_Challenge || NTLM_Authenticate)
+		 * ntauth[72..87] was zeroed by mkntauth, so HMAC is computed over the
+		 * message as it will appear on the wire (MIC field = 0 during computation).
+		 */
+		{
+			DigestState *mds;
+			mds = hmac_md5(ntnego, nnego, sesskey, MD5dlen, nil, nil);
+			mds = hmac_md5(ntp, ntlen, sesskey, MD5dlen, nil, mds);
+			hmac_md5(ntauth, n, sesskey, MD5dlen, ntauth+72, mds);
+		}
+	} else {
 		n = mkntauth(ntauth, sizeof ntauth, c->user, dom, ntresp+24, 24, nil);
-	if(n < 0)
-		return -1;
+		if(n < 0)
+			return -1;
+	}
 	if(writetsreq(c->fd, ntauth, n) < 0)
 		return -1;
 	fprint(2, "nla: Phase C sent (%d byte token)\n", n);

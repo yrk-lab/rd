@@ -214,7 +214,7 @@ testmkntauth(void)
 	n = mkntauth(buf, sizeof buf, "joe", "CORP", ntresp, NTRespLen, nil);
 	if(n < 0)
 		sysfatal("testmkntauth: unexpected error");
-	if(n < 64)
+	if(n < 88)
 		sysfatal("testmkntauth: message too short (%d)", n);
 	if(memcmp(buf, "NTLMSSP\0", 8) != 0)
 		sysfatal("testmkntauth: bad signature");
