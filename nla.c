@@ -1010,7 +1010,7 @@ mkntauth(uchar *buf, int nbuf, char *user, char *domain, uchar *ntresp, int ntre
 	PLONG(p+4, ntoff+ntresplen);
 	p += 8;
 
-	/* NegotiateFlags */
+	/* NegotiateFlags: no NfESS — NTLMv2 uses its own client challenge in the blob */
 	PLONG(p, NfUnicode|NfReqTarget|NfNTLM|NfAlwaysSign);  p += 4;
 
 	/* payload */

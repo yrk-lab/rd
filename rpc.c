@@ -88,9 +88,10 @@ nlahandshake(Rdp *c)
 	char user[256], domfromchal[256], pass[256], *dom;
 	uchar *ntp, *ti;
 	int n, ntlen, ntv2len, nresp, tilen, i, tlen, toff;
+	UserPasswd *up;
 
 	ntv2len = 0;
-	UserPasswd *up;
+	memset(sesskey, 0, sizeof sesskey);
 
 	/* Phase A: NTLM Negotiate (CredSSP v5, with clientNonce) */
 	fprint(2, "nla: sending Phase A (NTLM Negotiate)\n");
