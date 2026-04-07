@@ -1149,12 +1149,10 @@ fprint(2, "nla: Phase D received (%d bytes)\n", n);
 fprint(2, "nla: ExportedSessionKey (for sign/seal):");
 for(n = 0; n < MD5dlen; n++) fprint(2, " %02ux", sesskey[n]);
 fprint(2, "\n");
-n = 0;
 ntlmkeys(sesskey, signkey, sealkey);
 fprint(2, "nla: signKey:");
 for(n = 0; n < MD5dlen; n++) fprint(2, " %02ux", signkey[n]);
 fprint(2, "\n");
-n = 0;
 
 /* Extract SubjectPublicKeyInfo from server's TLS certificate */
 fprint(2, "nla: extracting server SubjectPublicKeyInfo (certlen=%d)\n", certlen);
@@ -1168,11 +1166,9 @@ return -1;
 fprint(2, "nla: SPKI (%d bytes):", spkilen);
 for(n = 0; n < spkilen; n++) fprint(2, " %02ux", spki[n]);
 fprint(2, "\n");
-n = 0;
 fprint(2, "nla: clientNonce:");
 for(n = 0; n < 32; n++) fprint(2, " %02ux", cnonce[n]);
 fprint(2, "\n");
-n = 0;
 
 /*
  * CredSSP v5 Phase E pubKeyAuth (MS-CSSP §3.1.5.1.1.1):
@@ -1185,7 +1181,6 @@ return -1;
 fprint(2, "nla: pubKeyAuth:");
 for(n = 0; n < pubkeyauthlen; n++) fprint(2, " %02ux", pubkeyauth[n]);
 fprint(2, "\n");
-n = 0;
 
 n = mktscreds(creds, sizeof creds, dom, user, pass);
 if(n < 0)
