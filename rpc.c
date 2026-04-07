@@ -81,7 +81,7 @@ nlahandshake(Rdp *c)
 	uchar challenge[8], tsreqbuf[4096];
 	uchar cchal[8];				/* NTLMv2 client challenge */
 	uchar lmv2resp[24];			/* NTLMv2 LmChallengeResponse */
-	uchar ntv2resp[16 + 32 + 1024 + 600];		/* NTLMv2 NtChallengeResponse (extra for EPA AvPairs) */
+	uchar ntv2resp[NTv2RespMax];			/* NTLMv2 NtChallengeResponse */
 	uchar ntresp[64];			/* factotum mschap NTLMv1 fallback */
 	uchar sesskey[MD5dlen];			/* NTLMv2 SessionBaseKey (= KeyExchangeKey) */
 	uchar exportedsk[MD5dlen];		/* random ExportedSessionKey (used for sign/seal) */

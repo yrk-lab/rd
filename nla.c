@@ -38,7 +38,7 @@ enum
 	NTRespLen		= 24,	/* NTLMv1 NT/LM response length */
 	MaxNTLMTargetInfo	= 1024,	/* maximum TargetInfo AvPairs length from challenge */
 	MaxNTLMClientAvExtra	= 8 + (4+16) + (4+512) + 4,	/* MsvAvFlags+MsvAvChannelBindings+MsvAvTargetName+EOL */
-	NTv2RespMax		= 16 + 32 + MaxNTLMTargetInfo + MaxNTLMClientAvExtra,	/* max NTLMv2 NtChallengeResponse */
+	NTv2RespMax		= 16 + 28 + MaxNTLMTargetInfo + MaxNTLMClientAvExtra,	/* max NTLMv2 NtChallengeResponse */
 
 	/* ASN.1 Universal tags (BER/DER) */
 	TagInt		= 2,	/* INTEGER */
@@ -980,7 +980,7 @@ ntv2frompasswd(char *pass, char *user, char *domain,
 		mtilen = (int)(w - mti);
 	}
 
-	bloblen = 32 + mtilen;
+	bloblen = 28 + mtilen;
 	if(MD5dlen + bloblen > nntbuf){
 		werrstr("ntv2frompasswd: NT response buffer too small");
 		return -1;
@@ -1016,14 +1016,16 @@ ntv2frompasswd(char *pass, char *user, char *domain,
 	hmac_md5(unidata, w - unidata, nthash, MD4dlen, rkey, nil);
 
 	/*
-	 * Build the NTLMv2 blob (MS-NLMP §3.3.2):
+	 * Build the NTLMv2 blob (MS-NLMP §3.3.2), 28-byte fixed header:
 	 *   [0]      RespType      = 0x01
 	 *   [1]      HiRespType    = 0x01
-	 *   [2-7]    Reserved      (6 zero bytes)
+	 *   [2-3]    Reserved1     (2 zero bytes)
+	 *   [4-7]    Reserved2     (4 zero bytes)
 	 *   [8-15]   Timestamp     (MsvAvTimestamp from Challenge, or zeros)
 	 *   [16-23]  ClientChallenge
-	 *   [24-27]  Reserved      (4 zero bytes)
-	 *   [28..]   TargetInfo    (modified: MsvAvFlags=2 inserted before EOL)
+	 *   [24-27]  Reserved3     (4 zero bytes)
+	 *   [28..]   TargetInfo    (modified AvPairs ending with MsvAvEOL)
+	 * Total blob length = 28 + mtilen (no trailing padding after EOL).
 	 */
 	memset(blob, 0, bloblen);
 	blob[0] = 0x01;
