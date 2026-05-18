@@ -81,13 +81,21 @@ jobs:
         if: steps.cache-9front.outputs.cache-hit != 'true'
         run: |
           mkdir -p $PLAN9FRONT
-          PAGE=$(curl -fsSL http://9front.org/releases/)
-          ISO_URL=$(printf '%s\n' "$PAGE" | grep -Eo 'https?://9front\.org/iso/[^ "<]+amd64[^ "<]+\.torrent' | head -1 | sed 's/\.torrent$//')
+          BASE="http://9front.org"
+          url="/releases/"
+          ISO_URL=""
+          for _ in $(seq 6); do
+            page=$(curl -fsSL "$BASE$url")
+            iso=$(printf '%s\n' "$page" | grep -Eo 'https?://9front\.org/iso/[^ "<]+amd64[^ "<]+\.torrent' | head -1 | sed 's/\.torrent$//')
+            if [ -n "$iso" ]; then ISO_URL="$iso"; break; fi
+            iso=$(printf '%s\n' "$page" | grep -Eo 'https?://9front\.org/iso/[^ "<]+amd64[^ "<]+\.(iso\.gz|iso)' | grep -v torrent | head -1)
+            if [ -n "$iso" ]; then ISO_URL="$iso"; break; fi
+            next=$(printf '%s\n' "$page" | grep -Eo "href=\"${url}[^/\"]+/\"" | sort | tail -1 | sed 's/href="\([^"]*\)"/\1/')
+            [ -z "$next" ] && break
+            url="$next"
+          done
           if [ -z "$ISO_URL" ]; then
-            ISO_URL=$(printf '%s\n' "$PAGE" | grep -Eo 'https?://9front\.org/iso/[^ "<]+amd64[^ "<]+\.iso(\.gz)?' | grep -v torrent | head -1)
-          fi
-          if [ -z "$ISO_URL" ]; then
-            echo "Could not find amd64 ISO URL on http://9front.org/releases/" >&2
+            echo "Could not find amd64 ISO URL under http://9front.org/releases/" >&2
             exit 1
           fi
           echo "Downloading: $ISO_URL"
