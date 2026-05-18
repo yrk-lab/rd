@@ -51,8 +51,8 @@ runtest:V: $O.test
 	./$O.test
 
 $O.thread:	$THREADOFILES $LIB
-	$LD $LDFLAGS -o $target $prereq
+	$LD -o $target $prereq $LDFLAGS
 
 $TESTOFILES: $TESTHFILES
 $O.test:	$TESTOFILES $LIB
-	$LD $LDFLAGS -o $target $prereq
+	$LD -o $target $prereq $LDFLAGS
