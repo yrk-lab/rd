@@ -45,6 +45,8 @@ jobs:
           key: plan9port-${{ runner.os }}-v1
       - name: Add plan9port to PATH
         run: echo "$PLAN9/bin" >> $GITHUB_PATH
+      - name: Install OpenSSL
+        run: sudo apt-get install -y libssl-dev pkg-config
       - name: Run tests
         run: mk test
 
@@ -61,6 +63,8 @@ jobs:
           key: plan9port-${{ runner.os }}-v1
       - name: Add plan9port to PATH
         run: echo "$PLAN9/bin" >> $GITHUB_PATH
+      - name: Install OpenSSL
+        run: sudo apt-get install -y libssl-dev pkg-config
       - name: Build o.thread
         run: mk o.thread
 

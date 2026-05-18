@@ -1,11 +1,13 @@
 #!/bin/rc
-
 if(! ~ $#PLAN9 0) {
 	# plan9port
 	echo '<$PLAN9/src/mkhdr'
 	echo 'MKONE=$PLAN9/src/mkone'
 	echo 'TLSFILE=tlsp9p'
 	echo 'BIN=$PLAN9/bin'
+	# OpenSSL for tlsp9p.c
+	echo 'CFLAGS=' `{pkg-config --cflags-only-I openssl}
+	echo 'LDFLAGS=' `{pkg-config --libs openssl}
 } 
 if not {
 	echo '</$objtype/mkfile'
