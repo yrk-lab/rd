@@ -84,9 +84,9 @@ threadmain(int argc, char *argv[])
 	c->local = getenv("sysname");
 	c->user = getenv("user");
 	if(c->local == nil)
-		sysfatal("set $sysname\n");
+		c->local = "gnot";
 	if(c->user == nil)
-		sysfatal("set $user");
+		c->user = "glenda";
 	if(doauth){
 		creds = auth_getuserpasswd(auth_getkey, "proto=pass role=client service=rdp %s", keyspec);
 		if(creds == nil)
