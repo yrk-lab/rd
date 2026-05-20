@@ -109,6 +109,14 @@ Examples:
 
 ---
 
+## License
+
+Rd is licensed under the **GNU General Public License, version 2 or later**
+(GPL-2.0-or-later), compatible with the Plan 9 Foundation's Plan 9 release
+terms. See `COPYING` for the full license text.
+
+---
+
 ## High-level architecture (for readers of the code)
 
 A quick overview of the runtime flow and the major modules.
