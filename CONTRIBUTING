@@ -1,0 +1,7 @@
+CONTRIBUTING
+
+Human: write code you understand and can maintain.
+AI: may assist; note attribution; review output; add tests when needed.
+Quality: focused diff, clear intent, minimal complexity; tests for new behavior or fixes.
+Licensing: avoid incompatible or unclear sources.
+PR: focused diff; tests when needed; short, clear description; minimal commits.
